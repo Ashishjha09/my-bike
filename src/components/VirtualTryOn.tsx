@@ -168,22 +168,23 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [rotation, setRotation] = useState<[number, number, number]>([0, 0.3, 0]);
-  const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [isModelLoaded, setIsModelLoaded] = useState(true); // Default to true for instant-on
   const [showLoadingRetry, setShowLoadingRetry] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [useGhostMode, setUseGhostMode] = useState(true); // Default to ghost mode
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isOpen) {
+      console.log("VirtualTryOn: Modal opened, starting camera and loading model...");
       startCamera();
-      setIsModelLoaded(false);
+      setIsModelLoaded(true);
       setShowLoadingRetry(false);
+      setUseGhostMode(true);
+      setLoadError(null);
       
-      // Set a timeout for loading
-      loadingTimeoutRef.current = setTimeout(() => {
-        if (!isModelLoaded) {
-          setShowLoadingRetry(true);
-        }
-      }, 5000); // 5 seconds
+      // We still try to load the real model in the background
+      // If it loads, BikeModel will call onLoad which sets useGhostMode to false
     } else {
       stopCamera();
       setIsAnalyzing(false);
@@ -250,7 +251,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
       const errorName = err.name || "";
       
       if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
-        setError("Camera access was denied. To fix this:\n1. Click the lock/camera icon in your browser's address bar.\n2. Change 'Camera' permission to 'Allow'.\n3. Click the 'Refresh Page' button below.");
+        setError("Camera access was denied. This often happens if:\n1. You clicked 'Block' when asked for permission.\n2. Your browser is blocking camera access within this frame.\n\nTo fix this:\n- Click the lock/camera icon in your browser's address bar and set 'Camera' to 'Allow'.\n- Or click 'Open in New Tab' below to use the app directly.");
       } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
         setError("No camera was found on this device. Please ensure your camera is connected.");
       } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
@@ -334,8 +335,14 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
               <p className="text-white/40 max-w-md mb-8 whitespace-pre-line">{error}</p>
               <div className="flex flex-wrap justify-center gap-4">
                 <button 
+                  onClick={() => window.open(window.location.href, '_blank')}
+                  className="bg-yellow-500 text-black px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white transition-all shadow-xl"
+                >
+                  Open in New Tab
+                </button>
+                <button 
                   onClick={startCamera}
-                  className="bg-yellow-500 text-black px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white transition-all"
+                  className="bg-white/10 text-white px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white hover:text-black transition-all"
                 >
                   Try Again
                 </button>
@@ -405,27 +412,31 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                         </mesh>
 
                         {/* High Quality Model - Suspended with a visible fallback */}
-                        <Suspense fallback={
-                          <mesh position={[0, 0, 0]}>
-                            <sphereGeometry args={[0.5]} />
-                            <meshStandardMaterial color="#EAB308" wireframe opacity={0.3} transparent />
-                          </mesh>
-                        }>
-                          <BikeModel color={bikeColor} onLoad={() => {
-                            console.log("VirtualTryOn: Model onLoad triggered");
-                            setIsModelLoaded(true);
-                          }} />
-                        </Suspense>
+                        {!useGhostMode && (
+                          <Suspense fallback={
+                            <mesh position={[0, 0, 0]}>
+                              <sphereGeometry args={[0.5]} />
+                              <meshStandardMaterial color="#EAB308" wireframe opacity={0.3} transparent />
+                            </mesh>
+                          }>
+                            <BikeModel color={bikeColor} onLoad={() => {
+                              console.log("VirtualTryOn: Model onLoad triggered");
+                              setIsModelLoaded(true);
+                              setUseGhostMode(false);
+                            }} />
+                          </Suspense>
+                        )}
                         
-                        {/* Instant Placeholder Model (Ghost) - Always Visible until loaded */}
-                        {!isModelLoaded && (
+                        {/* Instant Placeholder Model (Ghost) - Visible during loading OR if Ghost Mode is forced */}
+                        {(!isModelLoaded || useGhostMode) && (
                           <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
-                            <boxGeometry args={[2.5, 1.2, 0.8]} />
+                            <boxGeometry args={[3.5, 1.8, 1.2]} />
                             <meshStandardMaterial 
                               color="#EAB308" 
                               transparent 
-                              opacity={0.4} 
+                              opacity={0.6} 
                               wireframe 
+                              wireframeLineWidth={2}
                             />
                           </mesh>
                         )}
@@ -469,12 +480,41 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
               {/* Debug Status Overlay */}
               <div className="absolute bottom-24 left-6 z-[100] bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-[8px] text-white font-mono flex flex-col gap-1">
                 <div className="flex items-center gap-2">
-                  <div className={`w-1.5 h-1.5 rounded-full ${isModelLoaded ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
-                  <span>MODEL: {isModelLoaded ? 'READY' : 'LOADING...'}</span>
+                  <div className={`w-1.5 h-1.5 rounded-full ${isModelLoaded ? 'bg-green-500' : (showLoadingRetry ? 'bg-red-500' : 'bg-yellow-500 animate-pulse')}`} />
+                  <span>MODEL: {isModelLoaded ? (useGhostMode ? 'GHOST MODE' : 'READY') : (showLoadingRetry ? 'FAILED / SLOW' : 'LOADING...')}</span>
+                  {!isModelLoaded && (
+                    <button 
+                      onClick={() => {
+                        setIsModelLoaded(true);
+                        setUseGhostMode(true);
+                        setShowLoadingRetry(false);
+                      }}
+                      className="ml-2 text-yellow-500 underline hover:text-white transition-all font-black"
+                    >
+                      FORCE READY
+                    </button>
+                  )}
+                  {isModelLoaded && (
+                    <button 
+                      onClick={() => {
+                        setIsModelLoaded(false);
+                        setUseGhostMode(false);
+                        setShowLoadingRetry(false);
+                        // Force a re-render
+                        window.location.reload();
+                      }}
+                      className="ml-2 text-white/40 underline hover:text-white transition-all"
+                    >
+                      REFRESH
+                    </button>
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <div className={`w-1.5 h-1.5 rounded-full ${hasPermission ? 'bg-green-500' : 'bg-red-500'}`} />
                   <span>CAMERA: {hasPermission ? 'ACTIVE' : 'INACTIVE'}</span>
+                </div>
+                <div className="mt-1 pt-1 border-t border-white/5 opacity-40">
+                  <span>DEBUG: {JSON.stringify({ isModelLoaded, showLoadingRetry, useGhostMode, hasPermission })}</span>
                 </div>
               </div>
 
