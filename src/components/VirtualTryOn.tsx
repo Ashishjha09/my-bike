@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect, Suspense } from "react";
+import React, { useState, useRef, useEffect, Suspense, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Camera, RotateCw, Maximize2, User, Info, AlertCircle, Scan, CheckCircle2, Sparkles } from "lucide-react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF, Stage, PresentationControls, Environment, ContactShadows } from "@react-three/drei";
+import { useGLTF, Stage, PresentationControls, Environment, ContactShadows, Grid } from "@react-three/drei";
 import * as THREE from "three";
 
 // Public 3D model URL for a motorcycle
@@ -11,11 +11,20 @@ const BIKE_MODEL_URL = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/obje
 // Preload the model
 useGLTF.preload(BIKE_MODEL_URL);
 
-function BikeModel({ color, rotation, onLoad }: { color: string; rotation: [number, number, number]; onLoad: () => void }) {
+function BikeModel({ color, onLoad }: { color: string; onLoad: () => void }) {
   console.log("BikeModel: Starting to load GLTF model from", BIKE_MODEL_URL);
   const { scene } = useGLTF(BIKE_MODEL_URL);
   const groupRef = useRef<THREE.Group>(null);
   
+  // Clone scene for safety in React
+  const clonedScene = useMemo(() => {
+    if (scene) {
+      const clone = scene.clone();
+      return clone;
+    }
+    return null;
+  }, [scene]);
+
   // Notify parent when loaded
   useEffect(() => {
     if (scene) {
@@ -26,13 +35,12 @@ function BikeModel({ color, rotation, onLoad }: { color: string; rotation: [numb
 
   // Apply color to the model's materials
   useEffect(() => {
-    if (!scene) return;
+    if (!clonedScene) return;
     try {
-      scene.traverse((child) => {
+      clonedScene.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           const materials = Array.isArray(child.material) ? child.material : [child.material];
           materials.forEach(mat => {
-            // Target specific materials that should be colored (usually body or paint)
             const name = child.name.toLowerCase();
             if (name.includes("body") || name.includes("paint") || name.includes("frame")) {
               if (mat && 'color' in mat && (mat as any).color) {
@@ -45,16 +53,16 @@ function BikeModel({ color, rotation, onLoad }: { color: string; rotation: [numb
     } catch (err) {
       console.error("Error applying color to model:", err);
     }
-  }, [scene, color]);
+  }, [clonedScene, color]);
+
+  if (!clonedScene) return null;
 
   return (
-    <group ref={groupRef} rotation={rotation}>
-      <primitive 
-        object={scene} 
-        scale={2.2} 
-        position={[0, -1.2, 0]} 
-      />
-    </group>
+    <primitive 
+      object={clonedScene} 
+      scale={4.5} 
+      position={[0, -1.5, 0]} 
+    />
   );
 }
 
@@ -337,6 +345,91 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 className="absolute inset-0 w-full h-full object-cover z-0"
               />
               
+              {/* 3D Overlay - Moved up in Z-index to be above spinner if needed, but usually below controls */}
+              <div className="absolute inset-0 z-20 pointer-events-none overflow-visible">
+                <ErrorBoundary>
+                  <Canvas 
+                    shadows 
+                    camera={{ position: [0, 0, 5], fov: 45 }} 
+                    gl={{ 
+                      alpha: true, 
+                      antialias: true, 
+                      preserveDrawingBuffer: true
+                    }}
+                    onCreated={(state) => {
+                      state.gl.setClearColor(0x000000, 0);
+                      console.log("Canvas created and transparent");
+                    }}
+                    style={{ background: 'transparent', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
+                    className="pointer-events-auto"
+                  >
+                    <ambientLight intensity={2} />
+                    <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={3} castShadow />
+                    <pointLight position={[-10, -10, -10]} intensity={2} />
+                    <directionalLight position={[0, 5, 5]} intensity={2} />
+                    
+                    <PresentationControls
+                      global
+                      rotation={rotation}
+                      snap
+                    >
+                      {/* Test Sphere - Always visible to verify Canvas is working */}
+                      <mesh position={[2, 2, 0]}>
+                        <sphereGeometry args={[0.2]} />
+                        <meshStandardMaterial color="red" />
+                      </mesh>
+
+                      {/* High Quality Model - Suspended with a visible fallback */}
+                      <Suspense fallback={
+                        <mesh position={[0, 0, 0]}>
+                          <sphereGeometry args={[0.5]} />
+                          <meshStandardMaterial color="yellow" wireframe />
+                        </mesh>
+                      }>
+                        <BikeModel color={bikeColor} onLoad={() => {
+                          console.log("VirtualTryOn: Model onLoad triggered");
+                          setIsModelLoaded(true);
+                        }} />
+                      </Suspense>
+                      
+                      {/* Instant Placeholder Model (Ghost) - Always Visible until loaded */}
+                      {!isModelLoaded && (
+                        <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
+                          <boxGeometry args={[2.5, 1.2, 0.8]} />
+                          <meshStandardMaterial 
+                            color="#EAB308" 
+                            transparent 
+                            opacity={0.6} 
+                            wireframe 
+                          />
+                        </mesh>
+                      )}
+                    </PresentationControls>
+                    
+                    {/* Floor Grid for debugging visibility */}
+                    <Grid 
+                      infiniteGrid 
+                      fadeDistance={50} 
+                      fadeStrength={5} 
+                      sectionSize={1} 
+                      sectionThickness={1} 
+                      sectionColor="#EAB308"
+                      cellColor="#333"
+                      position={[0, -1.5, 0]}
+                    />
+                    
+                    <ContactShadows 
+                      position={[0, -1.2, 0]} 
+                      opacity={0.6} 
+                      scale={10} 
+                      blur={2} 
+                      far={4.5} 
+                    />
+                    <Environment preset="city" />
+                  </Canvas>
+                </ErrorBoundary>
+              </div>
+
               {!isModelLoaded && (
                 <LoadingSpinner 
                   showRetry={showLoadingRetry} 
@@ -346,64 +439,16 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
               )}
               {isAnalyzing && <ScanLine />}
 
-              {/* 3D Overlay */}
-              <div className="absolute inset-0 z-10 pointer-events-none">
-                <ErrorBoundary>
-                  <Canvas 
-                    shadows 
-                    camera={{ position: [0, 0, 5], fov: 45 }} 
-                    gl={{ 
-                      alpha: true, 
-                      antialias: true, 
-                      preserveDrawingBuffer: true,
-                      premultipliedAlpha: false
-                    }}
-                    onCreated={(state) => {
-                      state.gl.setClearColor(0x000000, 0);
-                      console.log("Canvas created and transparent");
-                    }}
-                    style={{ background: 'transparent' }}
-                    className="pointer-events-auto"
-                  >
-                    <Suspense fallback={null}>
-                      <ambientLight intensity={1.5} />
-                      <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} castShadow />
-                      <pointLight position={[-10, -10, -10]} intensity={1} />
-                      
-                      <PresentationControls
-                        global
-                        rotation={rotation}
-                        polar={[-Math.PI / 4, Math.PI / 4]}
-                        azimuth={[-Math.PI / 4, Math.PI / 4]}
-                      >
-                        {/* High Quality Model */}
-                        <BikeModel color={bikeColor} rotation={[0, 0, 0]} onLoad={() => setIsModelLoaded(true)} />
-                        
-                        {/* Instant Placeholder Model (Ghost) */}
-                        {!isModelLoaded && (
-                          <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
-                            <boxGeometry args={[1.5, 0.8, 0.5]} />
-                            <meshStandardMaterial 
-                              color={bikeColor} 
-                              transparent 
-                              opacity={0.3} 
-                              wireframe 
-                            />
-                          </mesh>
-                        )}
-                      </PresentationControls>
-                      
-                      <ContactShadows 
-                        position={[0, -1.2, 0]} 
-                        opacity={0.6} 
-                        scale={10} 
-                        blur={2} 
-                        far={4.5} 
-                      />
-                      <Environment preset="city" />
-                    </Suspense>
-                  </Canvas>
-                </ErrorBoundary>
+              {/* Debug Status Overlay */}
+              <div className="absolute bottom-24 left-6 z-[100] bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-[8px] text-white font-mono flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${isModelLoaded ? 'bg-green-500' : 'bg-yellow-500 animate-pulse'}`} />
+                  <span>MODEL: {isModelLoaded ? 'READY' : 'LOADING...'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${hasPermission ? 'bg-green-500' : 'bg-red-500'}`} />
+                  <span>CAMERA: {hasPermission ? 'ACTIVE' : 'INACTIVE'}</span>
+                </div>
               </div>
 
               {/* Analysis Result Overlay */}
