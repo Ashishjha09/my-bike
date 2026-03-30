@@ -95,32 +95,37 @@ function ScanLine() {
   );
 }
 
-function LoadingSpinner({ onRetry, onSkip, showRetry }: { onRetry?: () => void; onSkip?: () => void; showRetry?: boolean }) {
+function LoadingIndicator({ isLoaded, showRetry, onRetry, onSkip }: { isLoaded: boolean; showRetry: boolean; onRetry: () => void; onSkip: () => void }) {
+  if (isLoaded) return null;
+  
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm p-8 text-center pointer-events-none">
-      <div className="w-12 h-12 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-4" />
-      <h4 className="text-white font-black uppercase italic tracking-tighter text-lg animate-pulse">Optimizing 3D View...</h4>
+    <div className="absolute top-24 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center">
+      <div className="bg-black/60 backdrop-blur-xl border border-white/10 px-6 py-3 rounded-2xl flex items-center gap-4 shadow-2xl">
+        <div className="w-4 h-4 border-2 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin" />
+        <div className="flex flex-col">
+          <span className="text-white font-black uppercase italic tracking-tighter text-xs">Assembling 3D Model...</span>
+          <span className="text-white/40 text-[8px] font-bold uppercase tracking-widest">Optimizing high-quality assets</span>
+        </div>
+      </div>
       
       {showRetry && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center mt-4 pointer-events-auto"
+          className="mt-4 flex gap-2"
         >
-          <div className="flex gap-2">
-            <button 
-              onClick={onRetry}
-              className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-black text-[8px] tracking-widest uppercase hover:bg-white transition-all"
-            >
-              Retry
-            </button>
-            <button 
-              onClick={onSkip}
-              className="bg-white/10 text-white px-4 py-2 rounded-lg font-black text-[8px] tracking-widest uppercase hover:bg-white hover:text-black transition-all"
-            >
-              Skip 3D
-            </button>
-          </div>
+          <button 
+            onClick={onRetry}
+            className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-black text-[8px] tracking-widest uppercase hover:bg-white transition-all shadow-xl"
+          >
+            Retry
+          </button>
+          <button 
+            onClick={onSkip}
+            className="bg-white/10 text-white px-4 py-2 rounded-lg font-black text-[8px] tracking-widest uppercase hover:bg-white hover:text-black transition-all shadow-xl"
+          >
+            Use Ghost Mode
+          </button>
         </motion.div>
       )}
     </div>
@@ -363,8 +368,8 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 className="absolute inset-0 w-full h-full object-cover z-0"
               />
               
-              {/* 3D Overlay - Moved up in Z-index to be above spinner if needed, but usually below controls */}
-              <div className="absolute inset-0 z-20 pointer-events-none overflow-visible">
+              {/* 3D Overlay - Always visible, z-index above video but below controls */}
+              <div className="absolute inset-0 z-10 pointer-events-none overflow-visible">
                 <ErrorBoundary>
                   <Canvas 
                     shadows 
@@ -393,7 +398,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                         rotation={rotation}
                         snap
                       >
-                        {/* Test Sphere - Always visible to verify Canvas is working */}
+                        {/* Diagnostic Test Sphere */}
                         <mesh position={[2, 2, 0]}>
                           <sphereGeometry args={[0.2]} />
                           <meshStandardMaterial color="red" />
@@ -403,7 +408,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                         <Suspense fallback={
                           <mesh position={[0, 0, 0]}>
                             <sphereGeometry args={[0.5]} />
-                            <meshStandardMaterial color="yellow" wireframe />
+                            <meshStandardMaterial color="#EAB308" wireframe opacity={0.3} transparent />
                           </mesh>
                         }>
                           <BikeModel color={bikeColor} onLoad={() => {
@@ -419,14 +424,14 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                             <meshStandardMaterial 
                               color="#EAB308" 
                               transparent 
-                              opacity={0.6} 
+                              opacity={0.4} 
                               wireframe 
                             />
                           </mesh>
                         )}
                       </PresentationControls>
                       
-                      {/* Floor Grid for debugging visibility */}
+                      {/* Floor Grid */}
                       <Grid 
                         infiniteGrid 
                         fadeDistance={50} 
@@ -436,6 +441,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                         sectionColor="#EAB308"
                         cellColor="#333"
                         position={[0, -1.5, 0]}
+                        opacity={0.2}
                       />
                       
                       <ContactShadows 
@@ -451,13 +457,13 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 </ErrorBoundary>
               </div>
 
-              {!isModelLoaded && (
-                <LoadingSpinner 
-                  showRetry={showLoadingRetry} 
-                  onRetry={handleRetryLoading} 
-                  onSkip={handleSkipLoading}
-                />
-              )}
+              <LoadingIndicator 
+                isLoaded={isModelLoaded}
+                showRetry={showLoadingRetry}
+                onRetry={handleRetryLoading}
+                onSkip={handleSkipLoading}
+              />
+
               {isAnalyzing && <ScanLine />}
 
               {/* Debug Status Overlay */}
