@@ -8,13 +8,18 @@ import * as THREE from "three";
 // Public 3D model URL for a motorcycle
 const BIKE_MODEL_URL = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/motorcycle/model.gltf";
 
+// Preload the model
+useGLTF.preload(BIKE_MODEL_URL);
+
 function BikeModel({ color, rotation, onLoad }: { color: string; rotation: [number, number, number]; onLoad: () => void }) {
+  console.log("BikeModel: Starting to load GLTF model from", BIKE_MODEL_URL);
   const { scene } = useGLTF(BIKE_MODEL_URL);
   const groupRef = useRef<THREE.Group>(null);
   
   // Notify parent when loaded
   useEffect(() => {
     if (scene) {
+      console.log("BikeModel: GLTF model loaded successfully");
       onLoad();
     }
   }, [scene, onLoad]);
@@ -64,12 +69,34 @@ function ScanLine() {
   );
 }
 
-function LoadingSpinner() {
+function LoadingSpinner({ onRetry, onSkip, showRetry }: { onRetry?: () => void; onSkip?: () => void; showRetry?: boolean }) {
   return (
-    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-xl">
-      <div className="w-20 h-20 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-6" />
-      <h4 className="text-white font-black uppercase italic tracking-tighter text-2xl animate-pulse">Assembling Your Ride...</h4>
-      <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.3em] mt-2">Preparing 3D AR Environment</p>
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/40 backdrop-blur-sm p-8 text-center pointer-events-none">
+      <div className="w-12 h-12 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-4" />
+      <h4 className="text-white font-black uppercase italic tracking-tighter text-lg animate-pulse">Optimizing 3D View...</h4>
+      
+      {showRetry && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex flex-col items-center mt-4 pointer-events-auto"
+        >
+          <div className="flex gap-2">
+            <button 
+              onClick={onRetry}
+              className="bg-yellow-500 text-black px-4 py-2 rounded-lg font-black text-[8px] tracking-widest uppercase hover:bg-white transition-all"
+            >
+              Retry
+            </button>
+            <button 
+              onClick={onSkip}
+              className="bg-white/10 text-white px-4 py-2 rounded-lg font-black text-[8px] tracking-widest uppercase hover:bg-white hover:text-black transition-all"
+            >
+              Skip 3D
+            </button>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }
@@ -111,17 +138,54 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [rotation, setRotation] = useState<[number, number, number]>([0, 0.3, 0]);
   const [isModelLoaded, setIsModelLoaded] = useState(false);
+  const [showLoadingRetry, setShowLoadingRetry] = useState(false);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isOpen) {
       startCamera();
       setIsModelLoaded(false);
+      setShowLoadingRetry(false);
+      
+      // Set a timeout for loading
+      loadingTimeoutRef.current = setTimeout(() => {
+        if (!isModelLoaded) {
+          setShowLoadingRetry(true);
+        }
+      }, 5000); // 5 seconds
     } else {
       stopCamera();
       setIsAnalyzing(false);
       setAnalysisResult(null);
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
     }
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isModelLoaded && loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      setShowLoadingRetry(false);
+    }
+  }, [isModelLoaded]);
+
+  const handleRetryLoading = () => {
+    setIsModelLoaded(false);
+    setShowLoadingRetry(false);
+    // Trigger a re-render or reload if possible
+    window.location.reload(); // Simplest way to clear cache and retry
+  };
+
+  const handleSkipLoading = () => {
+    setIsModelLoaded(true); // This will hide the spinner
+    setShowLoadingRetry(false);
+  };
 
   const startCamera = async () => {
     setError(null);
@@ -273,7 +337,13 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 className="absolute inset-0 w-full h-full object-cover z-0"
               />
               
-              {!isModelLoaded && <LoadingSpinner />}
+              {!isModelLoaded && (
+                <LoadingSpinner 
+                  showRetry={showLoadingRetry} 
+                  onRetry={handleRetryLoading} 
+                  onSkip={handleSkipLoading}
+                />
+              )}
               {isAnalyzing && <ScanLine />}
 
               {/* 3D Overlay */}
@@ -306,7 +376,21 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                         polar={[-Math.PI / 4, Math.PI / 4]}
                         azimuth={[-Math.PI / 4, Math.PI / 4]}
                       >
+                        {/* High Quality Model */}
                         <BikeModel color={bikeColor} rotation={[0, 0, 0]} onLoad={() => setIsModelLoaded(true)} />
+                        
+                        {/* Instant Placeholder Model (Ghost) */}
+                        {!isModelLoaded && (
+                          <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
+                            <boxGeometry args={[1.5, 0.8, 0.5]} />
+                            <meshStandardMaterial 
+                              color={bikeColor} 
+                              transparent 
+                              opacity={0.3} 
+                              wireframe 
+                            />
+                          </mesh>
+                        )}
                       </PresentationControls>
                       
                       <ContactShadows 
