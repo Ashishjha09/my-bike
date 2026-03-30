@@ -14,7 +14,9 @@ function BikeModel({ color, rotation, onLoad }: { color: string; rotation: [numb
   
   // Notify parent when loaded
   useEffect(() => {
-    if (scene) onLoad();
+    if (scene) {
+      onLoad();
+    }
   }, [scene, onLoad]);
 
   // Apply color to the model's materials
@@ -25,7 +27,9 @@ function BikeModel({ color, rotation, onLoad }: { color: string; rotation: [numb
         if (child instanceof THREE.Mesh) {
           const materials = Array.isArray(child.material) ? child.material : [child.material];
           materials.forEach(mat => {
-            if (child.name.toLowerCase().includes("body") || child.name.toLowerCase().includes("paint")) {
+            // Target specific materials that should be colored (usually body or paint)
+            const name = child.name.toLowerCase();
+            if (name.includes("body") || name.includes("paint") || name.includes("frame")) {
               if (mat && 'color' in mat && (mat as any).color) {
                 (mat as any).color.set(color);
               }
@@ -40,7 +44,11 @@ function BikeModel({ color, rotation, onLoad }: { color: string; rotation: [numb
 
   return (
     <group ref={groupRef} rotation={rotation}>
-      <primitive object={scene} scale={1.8} position={[0, -0.8, 0]} />
+      <primitive 
+        object={scene} 
+        scale={2.2} 
+        position={[0, -1.2, 0]} 
+      />
     </group>
   );
 }
@@ -116,6 +124,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
   }, [isOpen]);
 
   const startCamera = async () => {
+    setError(null);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setError("Your browser does not support camera access or the connection is not secure.");
       setHasPermission(false);
@@ -139,13 +148,20 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
         setHasPermission(true);
         setError(null);
       }
-    } catch (err) {
-      console.error("Camera error:", err);
+    } catch (err: any) {
+      console.error("Camera error details:", err);
       setHasPermission(false);
-      if (err instanceof Error && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
-        setError("Camera access denied. Please click the camera icon in your browser's address bar and select 'Allow'.");
+      
+      const errorName = err.name || "";
+      
+      if (errorName === 'NotAllowedError' || errorName === 'PermissionDeniedError') {
+        setError("Camera access was denied. To fix this:\n1. Click the lock/camera icon in your browser's address bar.\n2. Change 'Camera' permission to 'Allow'.\n3. Click the 'Refresh Page' button below.");
+      } else if (errorName === 'NotFoundError' || errorName === 'DevicesNotFoundError') {
+        setError("No camera was found on this device. Please ensure your camera is connected.");
+      } else if (errorName === 'NotReadableError' || errorName === 'TrackStartError') {
+        setError("Camera is already in use by another application. Please close other apps and try again.");
       } else {
-        setError("Could not access camera. Please ensure no other app is using it and try again.");
+        setError(`Camera error: ${err.message || "An unexpected error occurred while accessing the camera."}`);
       }
     }
   };
@@ -220,8 +236,8 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
             <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-[#050505]">
               <AlertCircle className="w-16 h-16 text-red-500 mb-6" />
               <h4 className="text-2xl font-black text-white uppercase italic mb-4">Camera Access Required</h4>
-              <p className="text-white/40 max-w-md mb-8">{error}</p>
-              <div className="flex gap-4">
+              <p className="text-white/40 max-w-md mb-8 whitespace-pre-line">{error}</p>
+              <div className="flex flex-wrap justify-center gap-4">
                 <button 
                   onClick={startCamera}
                   className="bg-yellow-500 text-black px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white transition-all"
@@ -234,6 +250,15 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 >
                   Refresh Page
                 </button>
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(window.location.href);
+                    alert("App link copied! Open it in a new browser tab to grant permissions.");
+                  }}
+                  className="bg-white/10 text-white px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white hover:text-black transition-all"
+                >
+                  Copy App Link
+                </button>
               </div>
             </div>
           ) : (
@@ -243,33 +268,54 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 autoPlay
                 playsInline
                 muted
-                className="absolute inset-0 w-full h-full object-cover"
+                onLoadedData={() => console.log("Video stream loaded")}
+                onPlay={() => console.log("Video playing")}
+                className="absolute inset-0 w-full h-full object-cover z-0"
               />
               
               {!isModelLoaded && <LoadingSpinner />}
               {isAnalyzing && <ScanLine />}
 
               {/* 3D Overlay */}
-              <div className="absolute inset-0 z-10">
+              <div className="absolute inset-0 z-10 pointer-events-none">
                 <ErrorBoundary>
                   <Canvas 
                     shadows 
-                    camera={{ position: [0, 0, 4], fov: 50 }} 
-                    gl={{ alpha: true, antialias: true }}
-                    onCreated={(state) => state.gl.setClearColor(0x000000, 0)}
+                    camera={{ position: [0, 0, 5], fov: 45 }} 
+                    gl={{ 
+                      alpha: true, 
+                      antialias: true, 
+                      preserveDrawingBuffer: true,
+                      premultipliedAlpha: false
+                    }}
+                    onCreated={(state) => {
+                      state.gl.setClearColor(0x000000, 0);
+                      console.log("Canvas created and transparent");
+                    }}
+                    style={{ background: 'transparent' }}
+                    className="pointer-events-auto"
                   >
                     <Suspense fallback={null}>
-                      <Stage environment="city" intensity={0.5}>
-                        <PresentationControls
-                          global
-                          rotation={rotation}
-                          polar={[-Math.PI, Math.PI]}
-                          azimuth={[-Math.PI, Math.PI]}
-                        >
-                          <BikeModel color={bikeColor} rotation={[0, 0, 0]} onLoad={() => setIsModelLoaded(true)} />
-                        </PresentationControls>
-                      </Stage>
-                      <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />
+                      <ambientLight intensity={1.5} />
+                      <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={2} castShadow />
+                      <pointLight position={[-10, -10, -10]} intensity={1} />
+                      
+                      <PresentationControls
+                        global
+                        rotation={rotation}
+                        polar={[-Math.PI / 4, Math.PI / 4]}
+                        azimuth={[-Math.PI / 4, Math.PI / 4]}
+                      >
+                        <BikeModel color={bikeColor} rotation={[0, 0, 0]} onLoad={() => setIsModelLoaded(true)} />
+                      </PresentationControls>
+                      
+                      <ContactShadows 
+                        position={[0, -1.2, 0]} 
+                        opacity={0.6} 
+                        scale={10} 
+                        blur={2} 
+                        far={4.5} 
+                      />
                       <Environment preset="city" />
                     </Suspense>
                   </Canvas>
