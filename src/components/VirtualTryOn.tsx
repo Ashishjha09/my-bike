@@ -1,9 +1,25 @@
 import React, { useState, useRef, useEffect, Suspense, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Camera, RotateCw, Maximize2, User, Info, AlertCircle, Scan, CheckCircle2, Sparkles } from "lucide-react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { useGLTF, Stage, PresentationControls, Environment, ContactShadows, Grid } from "@react-three/drei";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useGLTF, Stage, PresentationControls, Environment, ContactShadows, Grid, Float } from "@react-three/drei";
+import { XR, createXRStore, XRButton, useXR } from "@react-three/xr";
 import * as THREE from "three";
+
+const store = createXRStore({
+  depthSensing: true,
+  hand: false,
+  controller: false,
+  hitTest: true,
+});
+
+function ARManager({ isModelLoaded }: { isModelLoaded: boolean }) {
+  const xr = useXR();
+  
+  // If we are in AR, we might want to hide the standard grid
+  // and show a placement indicator
+  return null;
+}
 
 // Public 3D model URL for a motorcycle
 const BIKE_MODEL_URL = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/motorcycle/model.gltf";
@@ -58,11 +74,13 @@ function BikeModel({ color, onLoad }: { color: string; onLoad: () => void }) {
   if (!clonedScene) return null;
 
   return (
-    <primitive 
-      object={clonedScene} 
-      scale={4.5} 
-      position={[0, -1.5, 0]} 
-    />
+    <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.5}>
+      <primitive 
+        object={clonedScene} 
+        scale={4.5} 
+        position={[0, -1.5, 0]} 
+      />
+    </Float>
   );
 }
 
@@ -363,69 +381,72 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                     style={{ background: 'transparent', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
                     className="pointer-events-auto"
                   >
-                    <ambientLight intensity={2} />
-                    <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={3} castShadow />
-                    <pointLight position={[-10, -10, -10]} intensity={2} />
-                    <directionalLight position={[0, 5, 5]} intensity={2} />
-                    
-                    <PresentationControls
-                      global
-                      rotation={rotation}
-                      snap
-                    >
-                      {/* Test Sphere - Always visible to verify Canvas is working */}
-                      <mesh position={[2, 2, 0]}>
-                        <sphereGeometry args={[0.2]} />
-                        <meshStandardMaterial color="red" />
-                      </mesh>
-
-                      {/* High Quality Model - Suspended with a visible fallback */}
-                      <Suspense fallback={
-                        <mesh position={[0, 0, 0]}>
-                          <sphereGeometry args={[0.5]} />
-                          <meshStandardMaterial color="yellow" wireframe />
-                        </mesh>
-                      }>
-                        <BikeModel color={bikeColor} onLoad={() => {
-                          console.log("VirtualTryOn: Model onLoad triggered");
-                          setIsModelLoaded(true);
-                        }} />
-                      </Suspense>
+                    <XR store={store}>
+                      <ARManager isModelLoaded={isModelLoaded} />
+                      <ambientLight intensity={2} />
+                      <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={3} castShadow />
+                      <pointLight position={[-10, -10, -10]} intensity={2} />
+                      <directionalLight position={[0, 5, 5]} intensity={2} />
                       
-                      {/* Instant Placeholder Model (Ghost) - Always Visible until loaded */}
-                      {!isModelLoaded && (
-                        <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
-                          <boxGeometry args={[2.5, 1.2, 0.8]} />
-                          <meshStandardMaterial 
-                            color="#EAB308" 
-                            transparent 
-                            opacity={0.6} 
-                            wireframe 
-                          />
+                      <PresentationControls
+                        global
+                        rotation={rotation}
+                        snap
+                      >
+                        {/* Test Sphere - Always visible to verify Canvas is working */}
+                        <mesh position={[2, 2, 0]}>
+                          <sphereGeometry args={[0.2]} />
+                          <meshStandardMaterial color="red" />
                         </mesh>
-                      )}
-                    </PresentationControls>
-                    
-                    {/* Floor Grid for debugging visibility */}
-                    <Grid 
-                      infiniteGrid 
-                      fadeDistance={50} 
-                      fadeStrength={5} 
-                      sectionSize={1} 
-                      sectionThickness={1} 
-                      sectionColor="#EAB308"
-                      cellColor="#333"
-                      position={[0, -1.5, 0]}
-                    />
-                    
-                    <ContactShadows 
-                      position={[0, -1.2, 0]} 
-                      opacity={0.6} 
-                      scale={10} 
-                      blur={2} 
-                      far={4.5} 
-                    />
-                    <Environment preset="city" />
+
+                        {/* High Quality Model - Suspended with a visible fallback */}
+                        <Suspense fallback={
+                          <mesh position={[0, 0, 0]}>
+                            <sphereGeometry args={[0.5]} />
+                            <meshStandardMaterial color="yellow" wireframe />
+                          </mesh>
+                        }>
+                          <BikeModel color={bikeColor} onLoad={() => {
+                            console.log("VirtualTryOn: Model onLoad triggered");
+                            setIsModelLoaded(true);
+                          }} />
+                        </Suspense>
+                        
+                        {/* Instant Placeholder Model (Ghost) - Always Visible until loaded */}
+                        {!isModelLoaded && (
+                          <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
+                            <boxGeometry args={[2.5, 1.2, 0.8]} />
+                            <meshStandardMaterial 
+                              color="#EAB308" 
+                              transparent 
+                              opacity={0.6} 
+                              wireframe 
+                            />
+                          </mesh>
+                        )}
+                      </PresentationControls>
+                      
+                      {/* Floor Grid for debugging visibility */}
+                      <Grid 
+                        infiniteGrid 
+                        fadeDistance={50} 
+                        fadeStrength={5} 
+                        sectionSize={1} 
+                        sectionThickness={1} 
+                        sectionColor="#EAB308"
+                        cellColor="#333"
+                        position={[0, -1.5, 0]}
+                      />
+                      
+                      <ContactShadows 
+                        position={[0, -1.2, 0]} 
+                        opacity={0.6} 
+                        scale={10} 
+                        blur={2} 
+                        far={4.5} 
+                      />
+                      <Environment preset="city" />
+                    </XR>
                   </Canvas>
                 </ErrorBoundary>
               </div>
@@ -449,6 +470,28 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                   <div className={`w-1.5 h-1.5 rounded-full ${hasPermission ? 'bg-green-500' : 'bg-red-500'}`} />
                   <span>CAMERA: {hasPermission ? 'ACTIVE' : 'INACTIVE'}</span>
                 </div>
+              </div>
+
+              {/* AR Controls */}
+              <div className="absolute bottom-32 right-6 z-[100] flex flex-col gap-4 pointer-events-auto">
+                <button
+                  onClick={handleAnalyze}
+                  disabled={isAnalyzing || !isModelLoaded}
+                  className={`w-16 h-16 rounded-full flex flex-col items-center justify-center shadow-2xl transition-all active:scale-95 border-4 border-black/20 ${
+                    isAnalyzing ? 'bg-white/20 text-white/40' : 'bg-white text-black hover:bg-yellow-500'
+                  }`}
+                >
+                  <Scan className="w-6 h-6" />
+                  <span className="text-[8px] font-black uppercase tracking-tighter mt-1">Scan</span>
+                </button>
+                
+                <button
+                  onClick={() => store.enterAR()}
+                  className="w-16 h-16 rounded-full bg-yellow-500 text-black flex flex-col items-center justify-center shadow-2xl hover:scale-110 transition-transform active:scale-95 border-4 border-black/20"
+                >
+                  <Sparkles className="w-6 h-6" />
+                  <span className="text-[8px] font-black uppercase tracking-tighter mt-1">Start AR</span>
+                </button>
               </div>
 
               {/* Analysis Result Overlay */}
