@@ -116,10 +116,24 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
   }, [isOpen]);
 
   const startCamera = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setError("Your browser does not support camera access or the connection is not secure.");
+      setHasPermission(false);
+      return;
+    }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } 
-      });
+      // Try with ideal constraints first
+      let stream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } 
+        });
+      } catch (firstErr) {
+        console.warn("Initial camera request failed, trying fallback:", firstErr);
+        // Fallback to any video source
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         setHasPermission(true);
@@ -128,7 +142,11 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
     } catch (err) {
       console.error("Camera error:", err);
       setHasPermission(false);
-      setError("Camera access denied. Please enable camera permissions to use Virtual Try-On.");
+      if (err instanceof Error && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
+        setError("Camera access denied. Please click the camera icon in your browser's address bar and select 'Allow'.");
+      } else {
+        setError("Could not access camera. Please ensure no other app is using it and try again.");
+      }
     }
   };
 
@@ -203,12 +221,20 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
               <AlertCircle className="w-16 h-16 text-red-500 mb-6" />
               <h4 className="text-2xl font-black text-white uppercase italic mb-4">Camera Access Required</h4>
               <p className="text-white/40 max-w-md mb-8">{error}</p>
-              <button 
-                onClick={startCamera}
-                className="bg-yellow-500 text-black px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white transition-all"
-              >
-                Try Again
-              </button>
+              <div className="flex gap-4">
+                <button 
+                  onClick={startCamera}
+                  className="bg-yellow-500 text-black px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white transition-all"
+                >
+                  Try Again
+                </button>
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="bg-white/10 text-white px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white hover:text-black transition-all"
+                >
+                  Refresh Page
+                </button>
+              </div>
             </div>
           ) : (
             <>
@@ -216,6 +242,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 ref={videoRef}
                 autoPlay
                 playsInline
+                muted
                 className="absolute inset-0 w-full h-full object-cover"
               />
               
