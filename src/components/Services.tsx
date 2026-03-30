@@ -44,7 +44,7 @@ export default function Services() {
             <span className="w-8 h-[1px] bg-yellow-500"></span>
             <span className="text-[10px] font-bold tracking-[0.5em] text-yellow-500 uppercase">Our Expertise</span>
           </div>
-          <h2 className="text-6xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter uppercase italic">
+          <h2 className="text-5xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter uppercase italic">
             BEYOND THE<br />
             <span className="text-white/20">SHOWROOM.</span>
           </h2>

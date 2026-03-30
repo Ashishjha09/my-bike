@@ -18,7 +18,7 @@ export default function Contact() {
               <span className="text-[10px] font-bold tracking-[0.5em] text-yellow-500 uppercase">Get in Touch</span>
             </div>
             
-            <h2 className="text-6xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter uppercase italic mb-12">
+            <h2 className="text-5xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter uppercase italic mb-12">
               START YOUR<br />
               <span className="text-white/20">JOURNEY.</span>
             </h2>

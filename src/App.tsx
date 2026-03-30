@@ -12,7 +12,7 @@ import Footer from "./components/Footer";
 
 export default function App() {
   return (
-    <div className="min-h-screen selection:bg-brand-primary selection:text-white">
+    <div className="min-h-screen selection:bg-brand-primary selection:text-white overflow-x-hidden">
       <Navbar />
       <main>
         <Hero />

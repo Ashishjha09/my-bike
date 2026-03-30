@@ -15,9 +15,36 @@ const vehicles = [
     description: "The Panigale V4 is the first mass-produced Ducati motorcycle to be equipped with a four-cylinder engine, derived directly from the Desmosedici of the MotoGP. It represents the pinnacle of Italian engineering.",
     specs: { speed: "299 km/h", power: "210 hp", weight: "190 kg", engine: "1103cc V4", torque: "124 Nm" },
     variants: [
-      { name: "Racing Red", hex: "#ef4444", image: "https://images.unsplash.com/photo-1558981285-6f0c94958bb6?auto=format&fit=crop&q=80&w=1200" },
-      { name: "Dark Stealth", hex: "#171717", image: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200" },
-      { name: "Arctic White", hex: "#f8fafc", image: "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=1200" }
+      { 
+        name: "Racing Red", 
+        hex: "#ef4444", 
+        images: [
+          "https://images.unsplash.com/photo-1558981285-6f0c94958bb6?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981359-219d6364c9c8?auto=format&fit=crop&q=80&w=1200"
+        ]
+      },
+      { 
+        name: "Dark Stealth", 
+        hex: "#171717", 
+        images: [
+          "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981285-6f0c94958bb6?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981359-219d6364c9c8?auto=format&fit=crop&q=80&w=1200"
+        ]
+      },
+      { 
+        name: "Arctic White", 
+        hex: "#f8fafc", 
+        images: [
+          "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981285-6f0c94958bb6?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981359-219d6364c9c8?auto=format&fit=crop&q=80&w=1200"
+        ]
+      }
     ],
     color: "from-yellow-500/20"
   },
@@ -32,8 +59,26 @@ const vehicles = [
     description: "Dominate the city streets with the Z900 SE. Featuring a powerful inline-four engine and aggressive Sugomi styling, it's built for riders who demand performance and presence.",
     specs: { speed: "180 km/h", power: "95 hp", weight: "175 kg", engine: "948cc I4", torque: "98 Nm" },
     variants: [
-      { name: "Emerald Green", hex: "#10b981", image: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200" },
-      { name: "Metallic Black", hex: "#171717", image: "https://images.unsplash.com/photo-1558981285-6f0c94958bb6?auto=format&fit=crop&q=80&w=1200" }
+      { 
+        name: "Emerald Green", 
+        hex: "#10b981", 
+        images: [
+          "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981285-6f0c94958bb6?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981359-219d6364c9c8?auto=format&fit=crop&q=80&w=1200"
+        ]
+      },
+      { 
+        name: "Metallic Black", 
+        hex: "#171717", 
+        images: [
+          "https://images.unsplash.com/photo-1558981285-6f0c94958bb6?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981359-219d6364c9c8?auto=format&fit=crop&q=80&w=1200"
+        ]
+      }
     ],
     color: "from-blue-500/20"
   },
@@ -48,8 +93,26 @@ const vehicles = [
     description: "The ultimate muscle roadster. With the world's largest production motorcycle engine, the Rocket 3 R delivers incredible torque and an unparalleled riding experience.",
     specs: { speed: "160 km/h", power: "75 hp", weight: "220 kg", engine: "2458cc Triple", torque: "221 Nm" },
     variants: [
-      { name: "Korosi Red", hex: "#b91c1c", image: "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=1200" },
-      { name: "Silver Ice", hex: "#94a3b8", image: "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200" }
+      { 
+        name: "Korosi Red", 
+        hex: "#b91c1c", 
+        images: [
+          "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981285-6f0c94958bb6?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981359-219d6364c9c8?auto=format&fit=crop&q=80&w=1200"
+        ]
+      },
+      { 
+        name: "Silver Ice", 
+        hex: "#94a3b8", 
+        images: [
+          "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981285-6f0c94958bb6?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1591637333184-19aa84b3e01f?auto=format&fit=crop&q=80&w=1200",
+          "https://images.unsplash.com/photo-1558981359-219d6364c9c8?auto=format&fit=crop&q=80&w=1200"
+        ]
+      }
     ],
     color: "from-red-500/20"
   }
@@ -58,11 +121,13 @@ const vehicles = [
 export default function FeaturedVehicles() {
   const [selectedVehicle, setSelectedVehicle] = useState<typeof vehicles[0] | null>(null);
   const [activeVariantIndex, setActiveVariantIndex] = useState(0);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [isTryOnOpen, setIsTryOnOpen] = useState(false);
 
   const openVehicle = (vehicle: typeof vehicles[0]) => {
     setSelectedVehicle(vehicle);
     setActiveVariantIndex(0);
+    setActiveImageIndex(0);
     document.body.style.overflow = "hidden";
   };
 
@@ -81,7 +146,7 @@ export default function FeaturedVehicles() {
               <span className="w-8 h-[1px] bg-yellow-500"></span>
               <span className="text-[10px] font-bold tracking-[0.5em] text-yellow-500 uppercase">The 2026 Collection</span>
             </div>
-            <h2 className="text-6xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter uppercase italic">
+            <h2 className="text-5xl md:text-8xl font-black text-white leading-[0.85] tracking-tighter uppercase italic">
               ENGINEERED<br />
               FOR <span className="text-white/20">DOMINANCE.</span>
             </h2>
@@ -125,7 +190,7 @@ export default function FeaturedVehicles() {
                 <div className="relative aspect-[4/3] mb-12 overflow-hidden rounded-2xl bg-white/5">
                   <div className={`absolute inset-0 bg-gradient-to-br ${vehicle.color} opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
                   <img 
-                    src={vehicle.variants[0].image} 
+                    src={vehicle.variants[0].images[0]} 
                     alt={vehicle.name} 
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     referrerPolicy="no-referrer"
@@ -175,73 +240,74 @@ export default function FeaturedVehicles() {
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="relative w-full max-w-6xl max-h-[90vh] bg-[#0a0a0a] rounded-[40px] border border-white/10 overflow-hidden flex flex-col lg:flex-row"
             >
-              {/* Close Button */}
-              <button 
-                onClick={closeVehicle}
-                className="absolute top-8 right-8 z-50 w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all"
-              >
-                <X className="w-6 h-6" />
-              </button>
-
               {/* Left: Image Showcase */}
               <div className="lg:w-3/5 relative bg-white/5 p-8 flex items-center justify-center overflow-hidden">
+                {/* Close Button - Resized to 30x30px and moved to top-0 right-8 */}
+                <button 
+                  onClick={closeVehicle}
+                  className="absolute top-0 right-8 z-50 w-[30px] h-[30px] rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all shadow-2xl"
+                >
+                  <X className="w-[15px] h-[15px]" />
+                </button>
+
                 <AnimatePresence mode="wait">
                   <motion.img
-                    key={activeVariantIndex}
+                    key={`${activeVariantIndex}-${activeImageIndex}`}
                     initial={{ opacity: 0, x: 20, scale: 0.95 }}
                     animate={{ opacity: 1, x: 0, scale: 1 }}
                     exit={{ opacity: 0, x: -20, scale: 0.95 }}
                     transition={{ duration: 0.4 }}
-                    src={selectedVehicle.variants[activeVariantIndex].image}
+                    src={selectedVehicle.variants[activeVariantIndex].images[activeImageIndex]}
                     alt={selectedVehicle.name}
                     className="w-full h-full object-contain relative z-10"
                     referrerPolicy="no-referrer"
                   />
                 </AnimatePresence>
+
+                {/* Thumbnail Gallery - Responsive layout */}
+                <div className="absolute bottom-4 right-4 md:bottom-8 md:right-8 z-20 flex flex-row lg:flex-col gap-2 md:gap-3">
+                  {selectedVehicle.variants[activeVariantIndex].images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`w-10 h-10 md:w-16 md:h-16 rounded-lg md:rounded-xl overflow-hidden border-2 transition-all ${
+                        activeImageIndex === idx ? "border-yellow-500 scale-110 shadow-lg" : "border-white/10 opacity-50 hover:opacity-100"
+                      }`}
+                    >
+                      <img src={img} alt="thumbnail" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    </button>
+                  ))}
+                </div>
                 
-                {/* Background Text */}
+                {/* Background Text - Reduced size for mobile */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <span className="text-[20vw] font-black text-white/[0.02] uppercase italic tracking-tighter leading-none">
+                  <span className="text-[15vw] lg:text-[20vw] font-black text-white/[0.02] uppercase italic tracking-tighter leading-none">
                     {selectedVehicle.brand}
                   </span>
                 </div>
 
-                {/* Virtual Try-On Trigger */}
+                {/* Virtual Try-On Trigger - Moved to bottom-0 */}
                 <button 
                   onClick={() => setIsTryOnOpen(true)}
-                  className="absolute bottom-8 left-8 z-20 bg-white text-black px-6 py-3 rounded-full font-black text-[10px] tracking-widest uppercase hover:bg-yellow-500 transition-all flex items-center gap-3"
+                  className="absolute bottom-0 left-8 z-20 bg-white text-black px-2.5 py-1.5 rounded-full font-black text-[9px] uppercase hover:bg-yellow-500 transition-all flex items-center gap-1 shadow-xl"
                 >
-                  <Camera className="w-4 h-4" /> Virtual Try-On
+                  <Camera className="w-3 h-3" /> Virtual Try-On
                 </button>
               </div>
 
               {/* Right: Info */}
               <div className="lg:w-2/5 p-8 md:p-12 overflow-y-auto custom-scrollbar">
-                <div className="flex items-center gap-3 mb-6">
-                  <span className="text-[10px] font-bold tracking-[0.5em] text-yellow-500 uppercase">{selectedVehicle.brand}</span>
-                  <span className="w-4 h-[1px] bg-white/20"></span>
-                  <span className="text-[10px] font-bold tracking-[0.5em] text-white/40 uppercase">{selectedVehicle.category}</span>
-                </div>
-
-                <h2 className="text-5xl md:text-7xl font-black text-white uppercase italic tracking-tighter leading-[0.85] mb-4">
-                  {selectedVehicle.name}
-                </h2>
-                <p className="text-xl font-bold text-white/40 uppercase italic tracking-tighter mb-8">
-                  {selectedVehicle.model}
-                </p>
-
-                <p className="text-white/60 text-sm leading-relaxed mb-12">
-                  {selectedVehicle.description}
-                </p>
-
-                {/* Color Selection */}
+                {/* Color Selection - Moved to top of info section */}
                 <div className="mb-12">
                   <h4 className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-6">Available Colors</h4>
                   <div className="flex flex-wrap gap-4">
                     {selectedVehicle.variants.map((variant, index) => (
                       <button
                         key={index}
-                        onClick={() => setActiveVariantIndex(index)}
+                        onClick={() => {
+                          setActiveVariantIndex(index);
+                          setActiveImageIndex(0);
+                        }}
                         className={`group relative flex items-center gap-3 p-2 pr-6 rounded-full border transition-all ${
                           activeVariantIndex === index 
                             ? "border-yellow-500 bg-yellow-500/10" 
@@ -264,6 +330,23 @@ export default function FeaturedVehicles() {
                   </div>
                 </div>
 
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="text-[10px] font-bold tracking-[0.5em] text-yellow-500 uppercase">{selectedVehicle.brand}</span>
+                  <span className="w-4 h-[1px] bg-white/20"></span>
+                  <span className="text-[10px] font-bold tracking-[0.5em] text-white/40 uppercase">{selectedVehicle.category}</span>
+                </div>
+
+                <h2 className="text-5xl md:text-7xl font-black text-white uppercase italic tracking-tighter leading-[0.85] mb-4">
+                  {selectedVehicle.name}
+                </h2>
+                <p className="text-xl font-bold text-white/40 uppercase italic tracking-tighter mb-8">
+                  {selectedVehicle.model}
+                </p>
+
+                <p className="text-white/60 text-sm leading-relaxed mb-12">
+                  {selectedVehicle.description}
+                </p>
+
                 {/* Specs Grid */}
                 <div className="grid grid-cols-2 gap-8 mb-12">
                   {Object.entries(selectedVehicle.specs).map(([key, value]) => (
@@ -274,12 +357,12 @@ export default function FeaturedVehicles() {
                   ))}
                 </div>
 
-                <div className="flex items-center justify-between pt-8 border-t border-white/10">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 pt-8 border-t border-white/10">
                   <div>
                     <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest mb-1">Starting Price</div>
                     <div className="text-4xl font-black text-white italic tracking-tighter">{selectedVehicle.price}</div>
                   </div>
-                  <button className="bg-yellow-500 text-black px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white transition-all flex items-center gap-2">
+                  <button className="w-full sm:w-auto bg-yellow-500 text-black px-8 py-4 rounded-2xl font-black text-[10px] tracking-widest uppercase hover:bg-white transition-all flex items-center justify-center gap-2">
                     Book Now <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>

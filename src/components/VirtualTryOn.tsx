@@ -8,10 +8,15 @@ import * as THREE from "three";
 // Public 3D model URL for a motorcycle
 const BIKE_MODEL_URL = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/motorcycle/model.gltf";
 
-function BikeModel({ color, rotation }: { color: string; rotation: [number, number, number] }) {
+function BikeModel({ color, rotation, onLoad }: { color: string; rotation: [number, number, number]; onLoad: () => void }) {
   const { scene } = useGLTF(BIKE_MODEL_URL);
   const groupRef = useRef<THREE.Group>(null);
   
+  // Notify parent when loaded
+  useEffect(() => {
+    if (scene) onLoad();
+  }, [scene, onLoad]);
+
   // Apply color to the model's materials
   useEffect(() => {
     scene.traverse((child) => {
@@ -25,7 +30,7 @@ function BikeModel({ color, rotation }: { color: string; rotation: [number, numb
 
   return (
     <group ref={groupRef} rotation={rotation}>
-      <primitive object={scene} scale={1.5} position={[0, -0.5, 0]} />
+      <primitive object={scene} scale={1.8} position={[0, -0.8, 0]} />
     </group>
   );
 }
@@ -38,6 +43,16 @@ function ScanLine() {
       transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
       className="absolute left-0 right-0 h-1 bg-yellow-500/50 shadow-[0_0_15px_rgba(234,179,8,0.5)] z-30 pointer-events-none"
     />
+  );
+}
+
+function LoadingSpinner() {
+  return (
+    <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/80 backdrop-blur-xl">
+      <div className="w-20 h-20 border-4 border-yellow-500/20 border-t-yellow-500 rounded-full animate-spin mb-6" />
+      <h4 className="text-white font-black uppercase italic tracking-tighter text-2xl animate-pulse">Assembling Your Ride...</h4>
+      <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.3em] mt-2">Preparing 3D AR Environment</p>
+    </div>
   );
 }
 
@@ -55,10 +70,12 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [rotation, setRotation] = useState<[number, number, number]>([0, 0.3, 0]);
+  const [isModelLoaded, setIsModelLoaded] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       startCamera();
+      setIsModelLoaded(false);
     } else {
       stopCamera();
       setIsAnalyzing(false);
@@ -69,7 +86,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment" } 
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } 
       });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
@@ -92,6 +109,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
   };
 
   const handleAnalyze = () => {
+    if (!isModelLoaded) return;
     setIsAnalyzing(true);
     setAnalysisResult(null);
     
@@ -108,12 +126,13 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
     }, 3000);
   };
 
-  const setView = (view: 'front' | 'back' | 'side' | 'top') => {
+  const setView = (view: 'front' | 'back' | 'side' | 'top' | 'reset') => {
     switch (view) {
       case 'front': setRotation([0, Math.PI, 0]); break;
       case 'back': setRotation([0, 0, 0]); break;
       case 'side': setRotation([0, Math.PI / 2, 0]); break;
       case 'top': setRotation([Math.PI / 2, 0, 0]); break;
+      case 'reset': setRotation([0, 0.3, 0]); break;
     }
   };
 
@@ -169,6 +188,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 className="absolute inset-0 w-full h-full object-cover"
               />
               
+              {!isModelLoaded && <LoadingSpinner />}
               {isAnalyzing && <ScanLine />}
 
               {/* 3D Overlay */}
@@ -182,7 +202,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                         polar={[-Math.PI, Math.PI]}
                         azimuth={[-Math.PI, Math.PI]}
                       >
-                        <BikeModel color={bikeColor} rotation={[0, 0, 0]} />
+                        <BikeModel color={bikeColor} rotation={[0, 0, 0]} onLoad={() => setIsModelLoaded(true)} />
                       </PresentationControls>
                     </Stage>
                     <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />
@@ -216,11 +236,13 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
 
               {/* View Presets */}
               <div className="absolute right-6 top-1/2 -translate-y-1/2 z-30 flex flex-col gap-3">
-                {['front', 'back', 'side', 'top'].map((view) => (
+                {['front', 'back', 'side', 'top', 'reset'].map((view) => (
                   <button
                     key={view}
                     onClick={() => setView(view as any)}
-                    className="w-12 h-12 rounded-xl bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-yellow-500 hover:text-black transition-all group"
+                    className={`w-12 h-12 rounded-xl backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-yellow-500 hover:text-black transition-all group ${
+                      view === 'reset' ? 'bg-yellow-500/20 border-yellow-500/50' : 'bg-black/40'
+                    }`}
                   >
                     <span className="text-[8px] font-black uppercase tracking-tighter group-hover:scale-110 transition-transform">{view}</span>
                   </button>
