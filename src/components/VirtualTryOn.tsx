@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, Suspense } from "react";
+import React, { useState, useRef, useEffect, Suspense } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Camera, RotateCw, Maximize2, User, Info, AlertCircle, Scan, CheckCircle2, Sparkles } from "lucide-react";
 import { Canvas, useFrame } from "@react-three/fiber";
@@ -19,13 +19,23 @@ function BikeModel({ color, rotation, onLoad }: { color: string; rotation: [numb
 
   // Apply color to the model's materials
   useEffect(() => {
-    scene.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        if (child.name.toLowerCase().includes("body") || child.name.toLowerCase().includes("paint")) {
-          child.material.color.set(color);
+    if (!scene) return;
+    try {
+      scene.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          const materials = Array.isArray(child.material) ? child.material : [child.material];
+          materials.forEach(mat => {
+            if (child.name.toLowerCase().includes("body") || child.name.toLowerCase().includes("paint")) {
+              if (mat && 'color' in mat && (mat as any).color) {
+                (mat as any).color.set(color);
+              }
+            }
+          });
         }
-      }
-    });
+      });
+    } catch (err) {
+      console.error("Error applying color to model:", err);
+    }
   }, [scene, color]);
 
   return (
@@ -61,6 +71,28 @@ interface VirtualTryOnProps {
   onClose: () => void;
   bikeName: string;
   bikeColor: string;
+}
+
+// Simple Error Boundary for Three.js
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error: any, errorInfo: any) { console.error("Three.js Error:", error, errorInfo); }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
+          <h4 className="text-white font-black uppercase italic tracking-tighter text-lg">3D Environment Error</h4>
+          <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-2">Failed to initialize 3D scene</p>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
 }
 
 export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: VirtualTryOnProps) {
@@ -136,16 +168,15 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
     }
   };
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200] bg-black flex flex-col"
-      >
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[200] bg-black flex flex-col"
+        >
         {/* Header */}
         <div className="absolute top-0 inset-x-0 z-50 p-6 flex items-center justify-between bg-gradient-to-b from-black/80 to-transparent">
           <div className="flex items-center gap-4">
@@ -193,22 +224,29 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
 
               {/* 3D Overlay */}
               <div className="absolute inset-0 z-10">
-                <Canvas shadows camera={{ position: [0, 0, 4], fov: 50 }}>
-                  <Suspense fallback={null}>
-                    <Stage environment="city" intensity={0.5}>
-                      <PresentationControls
-                        global
-                        rotation={rotation}
-                        polar={[-Math.PI, Math.PI]}
-                        azimuth={[-Math.PI, Math.PI]}
-                      >
-                        <BikeModel color={bikeColor} rotation={[0, 0, 0]} onLoad={() => setIsModelLoaded(true)} />
-                      </PresentationControls>
-                    </Stage>
-                    <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />
-                    <Environment preset="city" />
-                  </Suspense>
-                </Canvas>
+                <ErrorBoundary>
+                  <Canvas 
+                    shadows 
+                    camera={{ position: [0, 0, 4], fov: 50 }} 
+                    gl={{ alpha: true, antialias: true }}
+                    onCreated={(state) => state.gl.setClearColor(0x000000, 0)}
+                  >
+                    <Suspense fallback={null}>
+                      <Stage environment="city" intensity={0.5}>
+                        <PresentationControls
+                          global
+                          rotation={rotation}
+                          polar={[-Math.PI, Math.PI]}
+                          azimuth={[-Math.PI, Math.PI]}
+                        >
+                          <BikeModel color={bikeColor} rotation={[0, 0, 0]} onLoad={() => setIsModelLoaded(true)} />
+                        </PresentationControls>
+                      </Stage>
+                      <ContactShadows position={[0, -1.5, 0]} opacity={0.4} scale={10} blur={2.5} far={4} />
+                      <Environment preset="city" />
+                    </Suspense>
+                  </Canvas>
+                </ErrorBoundary>
               </div>
 
               {/* Analysis Result Overlay */}
@@ -296,6 +334,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
           </div>
         </div>
       </motion.div>
-    </AnimatePresence>
-  );
+    )}
+  </AnimatePresence>
+);
 }
