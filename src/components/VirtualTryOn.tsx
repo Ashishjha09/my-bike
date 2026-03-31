@@ -33,17 +33,29 @@ function ARPlacement({
   const [reticleRotation, setReticleRotation] = useState<THREE.Euler | null>(null);
   const xr = useXR();
 
-  useXRHitTest((results) => {
-    if (results.length > 0 && xr.originReferenceSpace) {
+  useXRHitTest((results: any) => {
+    if (!xr.originReferenceSpace) return;
+    
+    let matrix: THREE.Matrix4 | null = null;
+    
+    // Handle different versions of useXRHitTest callback arguments
+    if (results && typeof results.elements !== 'undefined') {
+      // It's a Matrix4
+      matrix = results;
+    } else if (Array.isArray(results) && results.length > 0) {
+      // It's an array of XRHitTestResults
       const hit = results[0];
       const pose = hit.getPose(xr.originReferenceSpace);
       if (pose) {
-        const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix as any);
-        const position = new THREE.Vector3().setFromMatrixPosition(matrix);
-        const rotation = new THREE.Euler().setFromRotationMatrix(matrix);
-        setReticlePosition(position);
-        setReticleRotation(rotation);
+        matrix = new THREE.Matrix4().fromArray(pose.transform.matrix as any);
       }
+    }
+
+    if (matrix) {
+      const position = new THREE.Vector3().setFromMatrixPosition(matrix);
+      const rotation = new THREE.Euler().setFromRotationMatrix(matrix);
+      setReticlePosition(position);
+      setReticleRotation(rotation);
     }
   }, xr.originReferenceSpace);
 
@@ -232,20 +244,31 @@ interface VirtualTryOnProps {
 }
 
 // Simple Error Boundary for Three.js
-class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean }> {
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean; error: string | null }> {
   constructor(props: any) {
     super(props);
-    this.state = { hasError: false };
+    this.state = { hasError: false, error: null };
   }
-  static getDerivedStateFromError() { return { hasError: true }; }
-  componentDidCatch(error: any, errorInfo: any) { console.error("Three.js Error:", error, errorInfo); }
+  static getDerivedStateFromError(error: any) { 
+    return { hasError: true, error: error?.message || "Unknown error" }; 
+  }
+  componentDidCatch(error: any, errorInfo: any) { 
+    console.error("Three.js Error:", error, errorInfo); 
+  }
   render() {
     if (this.state.hasError) {
       return (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 p-8 text-center">
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 p-8 text-center z-[100]">
           <AlertCircle className="w-12 h-12 text-red-500 mb-4" />
           <h4 className="text-white font-black uppercase italic tracking-tighter text-lg">3D Environment Error</h4>
-          <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-2">Failed to initialize 3D scene</p>
+          <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest mt-2">Failed to initialize 3D scene</p>
+          <p className="text-red-400/80 text-[8px] font-mono mt-4 max-w-xs break-words">{this.state.error}</p>
+          <button 
+            onClick={() => this.setState({ hasError: false, error: null })}
+            className="mt-6 bg-yellow-500 text-black px-6 py-2 rounded-xl font-black text-[10px] tracking-widest uppercase hover:bg-white transition-all"
+          >
+            Retry Scene
+          </button>
         </div>
       );
     }
@@ -486,64 +509,66 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 camera={{ position: [0, 0, 8], fov: 45 }} 
                 gl={{ 
                   alpha: true, 
-                  antialias: true, 
-                  preserveDrawingBuffer: true,
-                  powerPreference: "high-performance"
+                  antialias: true,
+                  preserveDrawingBuffer: true
                 }}
                 onCreated={(state) => {
                   state.gl.setClearColor(0x000000, 0);
-                  console.log("Canvas created and transparent");
+                  console.log("Canvas created");
                 }}
                 style={{ background: 'transparent', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
                 className="pointer-events-auto"
               >
-                {/* Global Test Cube - OUTSIDE XR to verify Canvas rendering */}
-                <mesh position={[-2, 2, 0]}>
-                  <boxGeometry args={[0.2, 0.2, 0.2]} />
-                  <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={5} />
-                </mesh>
+                <Suspense fallback={null}>
+                  {/* Global Test Cube - OUTSIDE XR to verify Canvas rendering */}
+                  <mesh position={[-2, 2, 0]}>
+                    <boxGeometry args={[0.2, 0.2, 0.2]} />
+                    <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={5} />
+                  </mesh>
 
-                <XR store={store}>
-                  {/* Debug Cube - Toggleable for verification */}
-                  {showDebugCube && (
-                    <mesh position={[0, 0, 0]}>
-                      <boxGeometry args={[2, 2, 2]} />
-                      <meshStandardMaterial color="purple" emissive="purple" emissiveIntensity={0.5} />
-                    </mesh>
-                  )}
+                  <XR store={store}>
+                    {/* Debug Cube - Toggleable for verification */}
+                    {showDebugCube && (
+                      <mesh position={[0, 0, 0]}>
+                        <boxGeometry args={[2, 2, 2]} />
+                        <meshStandardMaterial color="purple" emissive="purple" emissiveIntensity={0.5} />
+                      </mesh>
+                    )}
 
-                  <ARPlacement 
-                    placedPosition={placedPosition}
-                    onPlace={(pos) => setPlacedPosition(pos)}
-                    bikeColor={bikeColor}
-                    isModelLoaded={isModelLoaded}
-                    useGhostMode={useGhostMode}
-                  />
-                  
-                  <ambientLight intensity={3} />
-                  <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={5} castShadow />
-                  <pointLight position={[-10, -10, -10]} intensity={3} />
-                  <directionalLight position={[0, 5, 5]} intensity={3} />
-                  <Environment preset="city" />
-                  
-                  {/* Only show standard scene if NOT in AR session */}
-                  {!placedPosition && (
-                    <group position={[0, 0, 0]}>
-                      <PresentationControls
-                        global
-                        rotation={rotation}
-                        polar={[-Math.PI / 4, Math.PI / 4]}
-                        azimuth={[-Math.PI / 4, Math.PI / 4]}
-                        snap
-                      >
-                        {/* Diagnostic Test Sphere - Made larger and brighter */}
-                        <mesh position={[0, 2, 0]}>
-                          <sphereGeometry args={[0.2]} />
-                          <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={5} />
-                        </mesh>
+                    <ARPlacement 
+                      placedPosition={placedPosition}
+                      onPlace={(pos) => setPlacedPosition(pos)}
+                      bikeColor={bikeColor}
+                      isModelLoaded={isModelLoaded}
+                      useGhostMode={useGhostMode}
+                    />
+                    
+                    <ambientLight intensity={3} />
+                    <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={5} castShadow />
+                    <pointLight position={[-10, -10, -10]} intensity={3} />
+                    <directionalLight position={[0, 5, 5]} intensity={3} />
+                    
+                    <Suspense fallback={null}>
+                      <Environment preset="city" />
+                    </Suspense>
+                    
+                    {/* Only show standard scene if NOT in AR session */}
+                    {!placedPosition && (
+                      <group position={[0, 0, 0]}>
+                        <PresentationControls
+                          global
+                          rotation={rotation}
+                          polar={[-Math.PI / 4, Math.PI / 4]}
+                          azimuth={[-Math.PI / 4, Math.PI / 4]}
+                          snap
+                        >
+                          {/* Diagnostic Test Sphere - Made larger and brighter */}
+                          <mesh position={[0, 2, 0]}>
+                            <sphereGeometry args={[0.2]} />
+                            <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={5} />
+                          </mesh>
 
-                        {/* High Quality Model */}
-                        <Suspense fallback={null}>
+                          {/* High Quality Model */}
                           <group visible={!useGhostMode}>
                             <BikeModel color={bikeColor} onLoad={() => {
                               console.log("VirtualTryOn: Model onLoad triggered");
@@ -551,45 +576,45 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                               setUseGhostMode(false);
                             }} />
                           </group>
-                        </Suspense>
+                          
+                          {/* Instant Placeholder Model (Ghost) */}
+                          {useGhostMode && (
+                            <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
+                              <boxGeometry args={[3.5, 1.8, 1.2]} />
+                              <meshStandardMaterial 
+                                color="#EAB308" 
+                                transparent 
+                                opacity={0.5} 
+                                wireframe 
+                                wireframeLinewidth={3}
+                              />
+                            </mesh>
+                          )}
+                        </PresentationControls>
                         
-                        {/* Instant Placeholder Model (Ghost) */}
-                        {useGhostMode && (
-                          <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
-                            <boxGeometry args={[3.5, 1.8, 1.2]} />
-                            <meshStandardMaterial 
-                              color="#EAB308" 
-                              transparent 
-                              opacity={0.5} 
-                              wireframe 
-                              wireframeLinewidth={3}
-                            />
-                          </mesh>
-                        )}
-                      </PresentationControls>
-                      
-                      {/* Floor Grid */}
-                      <Grid 
-                        infiniteGrid 
-                        fadeDistance={50} 
-                        fadeStrength={5} 
-                        sectionSize={1} 
-                        sectionThickness={1} 
-                        sectionColor="#EAB308"
-                        cellColor="#333"
-                        position={[0, -2, 0]}
-                      />
-                      
-                      <ContactShadows 
-                        position={[0, -1.9, 0]} 
-                        opacity={0.6} 
-                        scale={10} 
-                        blur={2} 
-                        far={4.5} 
-                      />
-                    </group>
-                  )}
-                </XR>
+                        {/* Floor Grid */}
+                        <Grid 
+                          infiniteGrid 
+                          fadeDistance={50} 
+                          fadeStrength={5} 
+                          sectionSize={1} 
+                          sectionThickness={1} 
+                          sectionColor="#EAB308"
+                          cellColor="#333"
+                          position={[0, -2, 0]}
+                        />
+                        
+                        <ContactShadows 
+                          position={[0, -1.9, 0]} 
+                          opacity={0.6} 
+                          scale={10} 
+                          blur={2} 
+                          far={4.5} 
+                        />
+                      </group>
+                    )}
+                  </XR>
+                </Suspense>
               </Canvas>
             </ErrorBoundary>
           </div>
