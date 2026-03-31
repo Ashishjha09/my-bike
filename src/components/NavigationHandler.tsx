@@ -2,13 +2,17 @@ import { useEffect } from "react";
 
 export default function NavigationHandler() {
   useEffect(() => {
-    // 1. Ensure home is in history if landing on a sub-section
+    // 1. Initialize history with home as the base
     const currentHash = window.location.hash;
-    if (currentHash && currentHash !== "#home") {
-      window.history.replaceState(null, "", "#home");
-      window.history.pushState(null, "", currentHash);
-    } else if (!currentHash) {
-      window.history.replaceState(null, "", "#home");
+    let lastSection = currentHash ? currentHash.slice(1) : "home";
+
+    if (!currentHash || currentHash === "#home") {
+      window.history.replaceState({ section: "home" }, "", "#home");
+      lastSection = "home";
+    } else {
+      // If landing on a sub-section, push home first then the section
+      window.history.replaceState({ section: "home" }, "", "#home");
+      window.history.pushState({ section: lastSection }, "", currentHash);
     }
 
     // 2. Intersection Observer to update hash on scroll
@@ -23,16 +27,21 @@ export default function NavigationHandler() {
       entries.forEach((entry) => {
         if (entry.isIntersecting) {
           const id = entry.target.id;
-          if (id && window.location.hash !== `#${id}`) {
-            // Use replaceState to avoid cluttering history with every scroll
-            // but we want back to go to home, so we only push if it's not home
+          if (id && id !== lastSection) {
             if (id === "home") {
-              window.history.replaceState(null, "", "#home");
+              // If we are at home, we just replace to stay at the base of history
+              window.history.replaceState({ section: "home" }, "", "#home");
             } else {
-              // If we are moving from home to a section, we might want to push
-              // But for now, let's just keep it simple
-              window.history.replaceState(null, "", `#${id}`);
+              // If we move to a new section from home, we push
+              // If we move from one section to another (not home), we replace
+              // so that back button always goes to home
+              if (lastSection === "home") {
+                window.history.pushState({ section: id }, "", `#${id}`);
+              } else {
+                window.history.replaceState({ section: id }, "", `#${id}`);
+              }
             }
+            lastSection = id;
           }
         }
       });
@@ -45,9 +54,13 @@ export default function NavigationHandler() {
     });
 
     // 3. Handle back button specifically for "exit" prevention
-    const handlePopState = () => {
-      // If the user went back and the hash is now empty (which shouldn't happen with our replaceState)
-      // or if they are at home, we let the next back exit.
+    const handlePopState = (event: PopStateEvent) => {
+      const hash = window.location.hash;
+      if (!hash || hash === "#home") {
+        lastSection = "home";
+      } else {
+        lastSection = hash.slice(1);
+      }
     };
 
     window.addEventListener("popstate", handlePopState);

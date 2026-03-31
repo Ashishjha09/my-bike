@@ -3,23 +3,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { X, Camera, RotateCw, Maximize2, User, Info, AlertCircle, Scan, CheckCircle2, Sparkles } from "lucide-react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { useGLTF, Stage, PresentationControls, Environment, ContactShadows, Grid, Float } from "@react-three/drei";
-import { XR, createXRStore, XRButton, useXR } from "@react-three/xr";
+import { XR, createXRStore, useXR, useXRHitTest, Interactive } from "@react-three/xr";
 import * as THREE from "three";
 
 const store = createXRStore({
-  depthSensing: true,
-  hand: false,
-  controller: false,
   hitTest: true,
 });
-
-function ARManager({ isModelLoaded }: { isModelLoaded: boolean }) {
-  const xr = useXR();
-  
-  // If we are in AR, we might want to hide the standard grid
-  // and show a placement indicator
-  return null;
-}
 
 // Public 3D model URL for a motorcycle
 const BIKE_MODEL_URL = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/motorcycle/model.gltf";
@@ -27,10 +16,86 @@ const BIKE_MODEL_URL = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/obje
 // Preload the model
 useGLTF.preload(BIKE_MODEL_URL);
 
-function BikeModel({ color, onLoad }: { color: string; onLoad: () => void }) {
+function ARPlacement({ 
+  onPlace, 
+  placedPosition, 
+  bikeColor, 
+  isModelLoaded, 
+  useGhostMode 
+}: { 
+  onPlace: (pos: THREE.Vector3) => void;
+  placedPosition: THREE.Vector3 | null;
+  bikeColor: string;
+  isModelLoaded: boolean;
+  useGhostMode: boolean;
+}) {
+  const [reticlePosition, setReticlePosition] = useState<THREE.Vector3 | null>(null);
+  const [reticleRotation, setReticleRotation] = useState<THREE.Euler | null>(null);
+  const xr = useXR();
+
+  useXRHitTest((results) => {
+    if (results.length > 0 && xr.originReferenceSpace) {
+      const hit = results[0];
+      const pose = hit.getPose(xr.originReferenceSpace);
+      if (pose) {
+        const matrix = new THREE.Matrix4().fromArray(pose.transform.matrix as any);
+        const position = new THREE.Vector3().setFromMatrixPosition(matrix);
+        const rotation = new THREE.Euler().setFromRotationMatrix(matrix);
+        setReticlePosition(position);
+        setReticleRotation(rotation);
+      }
+    }
+  }, xr.originReferenceSpace);
+
+  // If already placed, show the model at the placed position
+  if (placedPosition && xr.session) {
+    return (
+      <group position={placedPosition}>
+        {!useGhostMode && isModelLoaded ? (
+          <BikeModel color={bikeColor} onLoad={() => {}} isInAR={true} />
+        ) : (
+          <mesh position={[0, 0.5, 0]}>
+            <boxGeometry args={[2, 1, 0.8]} />
+            <meshStandardMaterial color="#EAB308" transparent opacity={0.5} wireframe />
+          </mesh>
+        )}
+      </group>
+    );
+  }
+
+  // If in AR but not placed, show reticle and ghost model
+  if (xr.session && reticlePosition) {
+    return (
+      <Interactive onSelect={() => onPlace(reticlePosition)}>
+        <group position={reticlePosition}>
+          {/* Reticle / Placement Indicator */}
+          <mesh rotation-x={-Math.PI / 2}>
+            <ringGeometry args={[0.15, 0.2, 32]} />
+            <meshStandardMaterial color="#EAB308" />
+          </mesh>
+          <mesh rotation-x={-Math.PI / 2}>
+            <circleGeometry args={[0.05, 32]} />
+            <meshStandardMaterial color="#EAB308" />
+          </mesh>
+          
+          {/* Ghost Preview */}
+          <group>
+             <mesh position={[0, 0.5, 0]}>
+                <boxGeometry args={[2, 1, 0.8]} />
+                <meshStandardMaterial color="#EAB308" transparent opacity={0.2} wireframe />
+             </mesh>
+          </group>
+        </group>
+      </Interactive>
+    );
+  }
+
+  return null;
+}
+
+function BikeModel({ color, onLoad, isInAR = false }: { color: string; onLoad: () => void; isInAR?: boolean }) {
   console.log("BikeModel: Starting to load GLTF model from", BIKE_MODEL_URL);
   const { scene } = useGLTF(BIKE_MODEL_URL);
-  const groupRef = useRef<THREE.Group>(null);
   
   // Clone scene for safety in React
   const clonedScene = useMemo(() => {
@@ -74,13 +139,23 @@ function BikeModel({ color, onLoad }: { color: string; onLoad: () => void }) {
   if (!clonedScene) return null;
 
   return (
-    <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.5}>
-      <primitive 
-        object={clonedScene} 
-        scale={4.5} 
-        position={[0, -1.5, 0]} 
-      />
-    </Float>
+    <group>
+      {!isInAR ? (
+        <Float speed={1.5} rotationIntensity={0.5} floatIntensity={0.5}>
+          <primitive 
+            object={clonedScene} 
+            scale={4.5} 
+            position={[0, -1.5, 0]} 
+          />
+        </Float>
+      ) : (
+        <primitive 
+          object={clonedScene} 
+          scale={3} 
+          position={[0, 0, 0]} 
+        />
+      )}
+    </group>
   );
 }
 
@@ -174,6 +249,9 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
   const [useGhostMode, setUseGhostMode] = useState(true); // Default to ghost mode
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [placedPosition, setPlacedPosition] = useState<THREE.Vector3 | null>(null);
+  const [isARActive, setIsARActive] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       console.log("VirtualTryOn: Modal opened, starting camera and loading model...");
@@ -182,6 +260,8 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
       setShowLoadingRetry(false);
       setUseGhostMode(true);
       setLoadError(null);
+      setPlacedPosition(null);
+      setIsARActive(false);
       
       // We still try to load the real model in the background
       // If it loads, BikeModel will call onLoad which sets useGhostMode to false
@@ -189,6 +269,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
       stopCamera();
       setIsAnalyzing(false);
       setAnalysisResult(null);
+      setIsARActive(false);
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
       }
@@ -394,73 +475,85 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                     className="pointer-events-auto"
                   >
                     <XR store={store}>
-                      <ARManager isModelLoaded={isModelLoaded} />
+                      <ARPlacement 
+                        placedPosition={placedPosition}
+                        onPlace={(pos) => setPlacedPosition(pos)}
+                        bikeColor={bikeColor}
+                        isModelLoaded={isModelLoaded}
+                        useGhostMode={useGhostMode}
+                      />
+                      
                       <ambientLight intensity={2} />
                       <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={3} castShadow />
                       <pointLight position={[-10, -10, -10]} intensity={2} />
                       <directionalLight position={[0, 5, 5]} intensity={2} />
                       
-                      <PresentationControls
-                        global
-                        rotation={rotation}
-                        snap
-                      >
-                        {/* Diagnostic Test Sphere */}
-                        <mesh position={[2, 2, 0]}>
-                          <sphereGeometry args={[0.2]} />
-                          <meshStandardMaterial color="red" />
-                        </mesh>
-
-                        {/* High Quality Model - Suspended with a visible fallback */}
-                        {!useGhostMode && (
-                          <Suspense fallback={
-                            <mesh position={[0, 0, 0]}>
-                              <sphereGeometry args={[0.5]} />
-                              <meshStandardMaterial color="#EAB308" wireframe opacity={0.3} transparent />
+                      {/* Only show standard scene if NOT in AR session */}
+                      {!placedPosition && (
+                        <>
+                          <PresentationControls
+                            global
+                            rotation={rotation}
+                            snap
+                          >
+                            {/* Diagnostic Test Sphere */}
+                            <mesh position={[2, 2, 0]}>
+                              <sphereGeometry args={[0.2]} />
+                              <meshStandardMaterial color="red" />
                             </mesh>
-                          }>
-                            <BikeModel color={bikeColor} onLoad={() => {
-                              console.log("VirtualTryOn: Model onLoad triggered");
-                              setIsModelLoaded(true);
-                              setUseGhostMode(false);
-                            }} />
-                          </Suspense>
-                        )}
-                        
-                        {/* Instant Placeholder Model (Ghost) - Visible during loading OR if Ghost Mode is forced */}
-                        {(!isModelLoaded || useGhostMode) && (
-                          <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
-                            <boxGeometry args={[3.5, 1.8, 1.2]} />
-                            <meshStandardMaterial 
-                              color="#EAB308" 
-                              transparent 
-                              opacity={0.6} 
-                              wireframe 
-                              wireframeLinewidth={2}
-                            />
-                          </mesh>
-                        )}
-                      </PresentationControls>
-                      
-                      {/* Floor Grid */}
-                      <Grid 
-                        infiniteGrid 
-                        fadeDistance={50} 
-                        fadeStrength={5} 
-                        sectionSize={1} 
-                        sectionThickness={1} 
-                        sectionColor="#EAB308"
-                        cellColor="#333"
-                        position={[0, -1.5, 0]}
-                      />
-                      
-                      <ContactShadows 
-                        position={[0, -1.2, 0]} 
-                        opacity={0.6} 
-                        scale={10} 
-                        blur={2} 
-                        far={4.5} 
-                      />
+
+                            {/* High Quality Model - Suspended with a visible fallback */}
+                            {!useGhostMode && (
+                              <Suspense fallback={
+                                <mesh position={[0, 0, 0]}>
+                                  <sphereGeometry args={[0.5]} />
+                                  <meshStandardMaterial color="#EAB308" wireframe opacity={0.3} transparent />
+                                </mesh>
+                              }>
+                                <BikeModel color={bikeColor} onLoad={() => {
+                                  console.log("VirtualTryOn: Model onLoad triggered");
+                                  setIsModelLoaded(true);
+                                  setUseGhostMode(false);
+                                }} />
+                              </Suspense>
+                            )}
+                            
+                            {/* Instant Placeholder Model (Ghost) - Visible during loading OR if Ghost Mode is forced */}
+                            {(!isModelLoaded || useGhostMode) && (
+                              <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
+                                <boxGeometry args={[3.5, 1.8, 1.2]} />
+                                <meshStandardMaterial 
+                                  color="#EAB308" 
+                                  transparent 
+                                  opacity={0.6} 
+                                  wireframe 
+                                  wireframeLinewidth={2}
+                                />
+                              </mesh>
+                            )}
+                          </PresentationControls>
+                          
+                          {/* Floor Grid */}
+                          <Grid 
+                            infiniteGrid 
+                            fadeDistance={50} 
+                            fadeStrength={5} 
+                            sectionSize={1} 
+                            sectionThickness={1} 
+                            sectionColor="#EAB308"
+                            cellColor="#333"
+                            position={[0, -1.5, 0]}
+                          />
+                          
+                          <ContactShadows 
+                            position={[0, -1.2, 0]} 
+                            opacity={0.6} 
+                            scale={10} 
+                            blur={2} 
+                            far={4.5} 
+                          />
+                        </>
+                      )}
                       <Environment preset="city" />
                     </XR>
                   </Canvas>
@@ -531,7 +624,10 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 </button>
                 
                 <button
-                  onClick={() => store.enterAR()}
+                  onClick={() => {
+                    store.enterAR();
+                    setIsARActive(true);
+                  }}
                   className="w-16 h-16 rounded-full bg-yellow-500 text-black flex flex-col items-center justify-center shadow-2xl hover:scale-110 transition-transform active:scale-95 border-4 border-black/20"
                 >
                   <Sparkles className="w-6 h-6" />
@@ -586,7 +682,9 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 >
                   <User className="w-4 h-4 text-yellow-500" />
                   <span className="text-[10px] font-bold text-white uppercase tracking-widest">
-                    {isAnalyzing ? "Analyzing Person..." : "Stand 5-7 feet away to analyze fit"}
+                    {isARActive 
+                      ? (placedPosition ? "Bike Placed! Use gestures to view." : "Scan floor and tap to place bike")
+                      : (isAnalyzing ? "Analyzing Person..." : "Stand 5-7 feet away to analyze fit")}
                   </span>
                 </motion.div>
               </div>
