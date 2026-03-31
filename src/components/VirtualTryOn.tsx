@@ -10,8 +10,8 @@ const store = createXRStore({
   hitTest: true,
 });
 
-// Public 3D model URL for a motorcycle
-const BIKE_MODEL_URL = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/motorcycle/model.gltf";
+// More accurate dirt bike model URL
+const BIKE_MODEL_URL = "https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/models/dirt-bike/model.gltf";
 
 // Preload the model
 useGLTF.preload(BIKE_MODEL_URL);
@@ -64,7 +64,7 @@ function ARPlacement({
     return (
       <group position={placedPosition}>
         {!useGhostMode && isModelLoaded ? (
-          <BikeModel color={bikeColor} onLoad={() => {}} isInAR={true} />
+          <BikeModel color={bikeColor} onLoad={() => {}} isInAR={true} modelUrl={BIKE_MODEL_URL} />
         ) : (
           <mesh position={[0, 0.5, 0]}>
             <boxGeometry args={[2, 1, 0.8]} />
@@ -105,9 +105,9 @@ function ARPlacement({
   return null;
 }
 
-function BikeModel({ color, onLoad, isInAR = false }: { color: string; onLoad: () => void; isInAR?: boolean }) {
-  console.log("BikeModel: Starting to load GLTF model from", BIKE_MODEL_URL);
-  const { scene } = useGLTF(BIKE_MODEL_URL);
+function BikeModel({ color, onLoad, isInAR = false, modelUrl }: { color: string; onLoad: () => void; isInAR?: boolean; modelUrl: string }) {
+  console.log("BikeModel: Starting to load GLTF model from", modelUrl);
+  const { scene } = useGLTF(modelUrl);
   
   // Clone scene for safety in React
   const clonedScene = useMemo(() => {
@@ -151,8 +151,8 @@ function BikeModel({ color, onLoad, isInAR = false }: { color: string; onLoad: (
   if (!clonedScene) {
     return (
       <mesh position={[0, 0, 0]}>
-        <boxGeometry args={[1, 0.5, 2]} />
-        <meshStandardMaterial color={color} wireframe />
+        <boxGeometry args={[2, 1, 1]} />
+        <meshStandardMaterial color={color} wireframe emissive={color} emissiveIntensity={0.5} />
       </mesh>
     );
   }
@@ -278,6 +278,8 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
 
 export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: VirtualTryOnProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [customModelUrl, setCustomModelUrl] = useState<string>(BIKE_MODEL_URL);
+  const [showSettings, setShowSettings] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -292,6 +294,8 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
   const [placedPosition, setPlacedPosition] = useState<THREE.Vector3 | null>(null);
   const [isARActive, setIsARActive] = useState(false);
   const [showDebugCube, setShowDebugCube] = useState(false);
+  const [isScanning, setIsScanning] = useState(true);
+  const [floorDetected, setFloorDetected] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -303,6 +307,14 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
       setLoadError(null);
       setPlacedPosition(null);
       setIsARActive(false);
+      setIsScanning(true);
+      setFloorDetected(false);
+      
+      // Simulate floor detection after camera starts
+      setTimeout(() => {
+        setFloorDetected(true);
+        setIsScanning(false);
+      }, 3000);
       
       // Set a timeout to show retry if it takes too long
       loadingTimeoutRef.current = setTimeout(() => {
@@ -444,16 +456,65 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
               <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest">{bikeName}</p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
-            className="w-12 h-12 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setShowSettings(!showSettings)}
+              className={`w-12 h-12 rounded-full border flex items-center justify-center transition-all ${showSettings ? 'bg-yellow-500 text-black border-yellow-500' : 'bg-white/10 border-white/10 text-white hover:bg-white/20'}`}
+            >
+              <RotateCw className={`w-6 h-6 ${showSettings ? 'animate-spin-slow' : ''}`} />
+            </button>
+            <button 
+              onClick={onClose}
+              className="w-12 h-12 rounded-full bg-white/10 border border-white/10 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
         </div>
 
+        {/* Custom Model Settings Panel */}
+        <AnimatePresence>
+          {showSettings && (
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="absolute top-24 inset-x-6 z-[60] bg-black/80 backdrop-blur-xl border border-white/10 p-6 rounded-3xl shadow-2xl"
+            >
+              <h4 className="text-white font-black uppercase italic tracking-tighter text-sm mb-4">Custom 3D Model Settings</h4>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-white/40 text-[8px] font-bold uppercase tracking-widest block mb-2">Model GLTF/GLB URL</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={customModelUrl}
+                      onChange={(e) => setCustomModelUrl(e.target.value)}
+                      placeholder="https://example.com/model.gltf"
+                      className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs font-mono focus:outline-none focus:border-yellow-500 transition-colors"
+                    />
+                    <button 
+                      onClick={() => {
+                        setIsModelLoaded(false);
+                        setUseGhostMode(true);
+                        setShowSettings(false);
+                      }}
+                      className="bg-yellow-500 text-black px-4 py-2 rounded-xl font-black text-[10px] tracking-widest uppercase hover:bg-white transition-all"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+                <p className="text-white/30 text-[7px] leading-relaxed">
+                  Note: The URL must be a direct link to a .gltf or .glb file. Make sure the server allows Cross-Origin (CORS) requests.
+                </p>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {/* Camera Feed */}
-        <div className="relative flex-1 overflow-hidden bg-black">
+        <div className="relative flex-1 overflow-hidden">
           {hasPermission === false ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-[#050505]">
               <AlertCircle className="w-16 h-16 text-red-500 mb-6" />
@@ -498,15 +559,15 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 muted
                 onLoadedData={() => console.log("Video stream loaded")}
                 onPlay={() => console.log("Video playing")}
-                className="absolute inset-0 w-full h-full object-cover z-[-1]"
+                className="absolute inset-0 w-full h-full object-cover z-0"
               />
               
-          {/* 3D Overlay - Increased z-index and ensured visibility */}
-          <div className="absolute inset-0 z-20 pointer-events-none overflow-visible">
+          {/* 3D Overlay - Explicitly on top of video (z-10) */}
+          <div className="absolute inset-0 z-10 pointer-events-none overflow-visible">
             <ErrorBoundary>
               <Canvas 
                 shadows 
-                camera={{ position: [0, 0, 8], fov: 45 }} 
+                camera={{ position: [0, 0, 10], fov: 45 }} 
                 gl={{ 
                   alpha: true, 
                   antialias: true,
@@ -519,10 +580,15 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                 style={{ background: 'transparent', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0 }}
                 className="pointer-events-auto"
               >
-                <Suspense fallback={null}>
+                <Suspense fallback={
+                  <mesh position={[0, 0, 0]}>
+                    <sphereGeometry args={[0.5, 16, 16]} />
+                    <meshStandardMaterial color="yellow" wireframe />
+                  </mesh>
+                }>
                   {/* Global Test Cube - OUTSIDE XR to verify Canvas rendering */}
-                  <mesh position={[-2, 2, 0]}>
-                    <boxGeometry args={[0.2, 0.2, 0.2]} />
+                  <mesh position={[-3, 3, 0]}>
+                    <boxGeometry args={[0.5, 0.5, 0.5]} />
                     <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={5} />
                   </mesh>
 
@@ -530,8 +596,8 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                     {/* Debug Cube - Toggleable for verification */}
                     {showDebugCube && (
                       <mesh position={[0, 0, 0]}>
-                        <boxGeometry args={[2, 2, 2]} />
-                        <meshStandardMaterial color="purple" emissive="purple" emissiveIntensity={0.5} />
+                        <boxGeometry args={[3, 3, 3]} />
+                        <meshStandardMaterial color="purple" emissive="purple" emissiveIntensity={1} transparent opacity={0.7} />
                       </mesh>
                     )}
 
@@ -543,10 +609,10 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                       useGhostMode={useGhostMode}
                     />
                     
-                    <ambientLight intensity={3} />
-                    <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={5} castShadow />
-                    <pointLight position={[-10, -10, -10]} intensity={3} />
-                    <directionalLight position={[0, 5, 5]} intensity={3} />
+                    <ambientLight intensity={4} />
+                    <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={10} castShadow />
+                    <pointLight position={[-10, -10, -10]} intensity={5} />
+                    <directionalLight position={[0, 5, 5]} intensity={5} />
                     
                     <Suspense fallback={null}>
                       <Environment preset="city" />
@@ -554,7 +620,20 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                     
                     {/* Only show standard scene if NOT in AR session */}
                     {!placedPosition && (
-                      <group position={[0, 0, 0]}>
+                      <group position={[0, -1.5, 0]}>
+                        {/* Floor Placement Reticle (Simulated) */}
+                        {!isARActive && floorDetected && (
+                          <mesh 
+                            rotation={[-Math.PI / 2, 0, 0]} 
+                            position={[0, -0.9, 0]}
+                            onClick={() => setPlacedPosition(new THREE.Vector3(0, -1.5, 0))}
+                            className="cursor-pointer"
+                          >
+                            <ringGeometry args={[0.8, 1, 32]} />
+                            <meshStandardMaterial color="#EAB308" emissive="#EAB308" emissiveIntensity={2} transparent opacity={0.6} />
+                          </mesh>
+                        )}
+
                         <PresentationControls
                           global
                           rotation={rotation}
@@ -563,9 +642,9 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                           snap
                         >
                           {/* Diagnostic Test Sphere - Made larger and brighter */}
-                          <mesh position={[0, 2, 0]}>
-                            <sphereGeometry args={[0.2]} />
-                            <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={5} />
+                          <mesh position={[0, 3, 0]}>
+                            <sphereGeometry args={[0.3]} />
+                            <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={10} />
                           </mesh>
 
                           {/* High Quality Model */}
@@ -574,19 +653,19 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                               console.log("VirtualTryOn: Model onLoad triggered");
                               setIsModelLoaded(true);
                               setUseGhostMode(false);
-                            }} />
+                            }} modelUrl={customModelUrl} />
                           </group>
                           
                           {/* Instant Placeholder Model (Ghost) */}
                           {useGhostMode && (
                             <mesh position={[0, -0.5, 0]} rotation={[0, 0.3, 0]}>
-                              <boxGeometry args={[3.5, 1.8, 1.2]} />
+                              <boxGeometry args={[4, 2, 1.5]} />
                               <meshStandardMaterial 
                                 color="#EAB308" 
                                 transparent 
-                                opacity={0.5} 
+                                opacity={0.6} 
                                 wireframe 
-                                wireframeLinewidth={3}
+                                wireframeLinewidth={4}
                               />
                             </mesh>
                           )}
@@ -601,15 +680,15 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                           sectionThickness={1} 
                           sectionColor="#EAB308"
                           cellColor="#333"
-                          position={[0, -2, 0]}
+                          position={[0, -2.5, 0]}
                         />
                         
                         <ContactShadows 
-                          position={[0, -1.9, 0]} 
-                          opacity={0.6} 
-                          scale={10} 
-                          blur={2} 
-                          far={4.5} 
+                          position={[0, -2.4, 0]} 
+                          opacity={0.8} 
+                          scale={15} 
+                          blur={2.5} 
+                          far={5} 
                         />
                       </group>
                     )}
@@ -627,6 +706,29 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
               />
 
               {isAnalyzing && <ScanLine />}
+              
+              {/* Scanning Overlay */}
+              <AnimatePresence>
+                {isScanning && hasPermission && (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="absolute inset-0 z-40 bg-black/20 backdrop-blur-[2px] flex flex-col items-center justify-center"
+                  >
+                    <div className="relative w-48 h-48 border-2 border-yellow-500/30 rounded-full flex items-center justify-center">
+                      <motion.div 
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "linear" }}
+                        className="absolute inset-0 border-t-2 border-yellow-500 rounded-full"
+                      />
+                      <Scan className="w-12 h-12 text-yellow-500 animate-pulse" />
+                    </div>
+                    <h4 className="text-white font-black uppercase italic tracking-tighter text-lg mt-8">Scanning Floor...</h4>
+                    <p className="text-white/60 text-[10px] font-bold uppercase tracking-widest mt-2">Move your phone to detect surface</p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Debug Status Overlay */}
               <div className="absolute bottom-24 left-6 z-[100] bg-black/60 backdrop-blur-md p-3 rounded-xl border border-white/10 text-[8px] text-white font-mono flex flex-col gap-1">
