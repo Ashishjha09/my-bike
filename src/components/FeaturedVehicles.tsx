@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ArrowUpRight, Star, Fuel, Zap, Gauge, X, Check, ChevronRight, Camera } from "lucide-react";
 import VirtualTryOn from "./VirtualTryOn";
@@ -129,11 +129,37 @@ export default function FeaturedVehicles() {
     setActiveVariantIndex(0);
     setActiveImageIndex(0);
     document.body.style.overflow = "hidden";
+    // Push a state so back button closes the modal
+    window.history.pushState({ modal: "details" }, "");
   };
 
   const closeVehicle = () => {
     setSelectedVehicle(null);
+    setIsTryOnOpen(false);
     document.body.style.overflow = "auto";
+    // If we are still in the modal state, go back
+    if (window.history.state?.modal === "details" || window.history.state?.modal === "tryon") {
+      window.history.back();
+    }
+  };
+
+  // Handle back button to close modals
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (selectedVehicle || isTryOnOpen) {
+        setSelectedVehicle(null);
+        setIsTryOnOpen(false);
+        document.body.style.overflow = "auto";
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [selectedVehicle, isTryOnOpen]);
+
+  const openTryOn = () => {
+    setIsTryOnOpen(true);
+    window.history.pushState({ modal: "tryon" }, "");
   };
 
   return (
@@ -288,7 +314,7 @@ export default function FeaturedVehicles() {
 
                 {/* Virtual Try-On Trigger - Moved to bottom-0 */}
                 <button 
-                  onClick={() => setIsTryOnOpen(true)}
+                  onClick={openTryOn}
                   className="absolute bottom-0 left-8 z-20 bg-white text-black px-2.5 py-1.5 rounded-full font-black text-[9px] uppercase hover:bg-yellow-500 transition-all flex items-center gap-1 shadow-xl"
                 >
                   <Camera className="w-3 h-3" /> Virtual Try-On
