@@ -436,7 +436,7 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                               transparent 
                               opacity={0.6} 
                               wireframe 
-                              wireframeLineWidth={2}
+                              wireframeLinewidth={2}
                             />
                           </mesh>
                         )}
@@ -452,7 +452,6 @@ export default function VirtualTryOn({ isOpen, onClose, bikeName, bikeColor }: V
                         sectionColor="#EAB308"
                         cellColor="#333"
                         position={[0, -1.5, 0]}
-                        opacity={0.2}
                       />
                       
                       <ContactShadows 

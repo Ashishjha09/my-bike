@@ -5,14 +5,14 @@ export default function Hero() {
   return (
     <section id="home" className="relative h-screen flex items-center bg-[#0a0a0a] overflow-hidden">
       {/* Background Video - Watermark Style */}
-      <div className="absolute inset-0 pointer-events-none select-none overflow-hidden">
-        <div className="absolute inset-0 bg-black/60 z-10" /> {/* Overlay to keep text readable */}
+      <div className="absolute inset-0 pointer-events-none select-none overflow-hidden bg-[#0a0a0a]">
         <video
           autoPlay
           muted
           loop
           playsInline
-          className="w-full h-full object-cover opacity-20"
+          poster="https://images.unsplash.com/photo-1558981806-ec527fa84c39?auto=format&fit=crop&q=80&w=1920"
+          className="absolute inset-0 w-full h-full object-cover opacity-100 z-0"
         >
           <source 
             src="https://assets.mixkit.co/videos/preview/mixkit-motorcyclist-riding-on-a-highway-at-sunset-27514-large.mp4" 
@@ -20,6 +20,7 @@ export default function Hero() {
           />
           Your browser does not support the video tag.
         </video>
+        <div className="absolute inset-0 bg-black/20 z-10" /> {/* Subtle overlay for text readability */}
       </div>
 
       <div className="relative z-20 w-full max-w-7xl mx-auto px-8 md:px-20 flex flex-col items-center text-center">
