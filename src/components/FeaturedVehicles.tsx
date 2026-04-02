@@ -400,12 +400,15 @@ export default function FeaturedVehicles() {
 
       {/* Virtual Try-On Modal */}
       {selectedVehicle && (
-        <VirtualTryOn 
-          isOpen={isTryOnOpen}
-          onClose={() => setIsTryOnOpen(false)}
-          bikeName={selectedVehicle.name}
-          bikeColor={selectedVehicle.variants[activeVariantIndex].hex}
-        />
+        <>
+          {console.log("Rendering VirtualTryOn for", selectedVehicle.name, "isOpen:", isTryOnOpen)}
+          <VirtualTryOn 
+            isOpen={isTryOnOpen}
+            onClose={() => setIsTryOnOpen(false)}
+            bikeName={selectedVehicle.name}
+            bikeColor={selectedVehicle.variants[activeVariantIndex].hex}
+          />
+        </>
       )}
     </section>
   );
