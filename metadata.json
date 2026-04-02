@@ -1,5 +1,5 @@
 {
   "name": "Nutan Automobile",
   "description": "A premium showroom for bikes and scooters, offering the latest models and exceptional service.",
-  "requestFramePermissions": ["camera"]
+  "requestFramePermissions": []
 }

@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { ArrowUpRight, Star, Fuel, Zap, Gauge, X, Check, ChevronRight, Camera } from "lucide-react";
-import VirtualTryOn from "./VirtualTryOn";
+import { ArrowUpRight, Star, Fuel, Zap, Gauge, X, Check, ChevronRight, Scale, Plus, Minus, Share2 } from "lucide-react";
 
 const vehicles = [
   {
@@ -118,11 +117,56 @@ const vehicles = [
   }
 ];
 
+const renderComparisonRows = (compareIds: string[]) => {
+  const firstVehicle = vehicles[0];
+  return Object.keys(firstVehicle.specs).map(specKey => {
+    const specName = specKey as keyof typeof firstVehicle.specs;
+    const values = compareIds.map(id => {
+      const v = vehicles.find(v => v.id === id);
+      return v ? v.specs[specName] : "";
+    });
+    
+    const numericValues = values.map(v => parseFloat(v.replace(/[^0-9.]/g, '') || '0'));
+    const maxVal = Math.max(...numericValues);
+    const minVal = Math.min(...numericValues);
+    
+    return (
+      <tr key={specKey} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+        <td className="p-6 text-[10px] font-bold text-white/40 uppercase tracking-widest">{specKey}</td>
+        {values.map((val, idx) => {
+          const num = numericValues[idx];
+          const isBetter = specKey === 'weight' 
+            ? (num === minVal && minVal !== maxVal)
+            : (num === maxVal && minVal !== maxVal);
+
+          return (
+            <td key={idx} className="p-6 text-center">
+              <span className={`text-lg font-black uppercase italic tracking-tighter px-4 py-2 rounded-lg ${
+                isBetter ? "text-yellow-500 bg-yellow-500/10 ring-1 ring-yellow-500/20" : "text-white"
+              }`}>
+                {val}
+              </span>
+            </td>
+          );
+        })}
+      </tr>
+    );
+  });
+};
+
 export default function FeaturedVehicles() {
   const [selectedVehicle, setSelectedVehicle] = useState<typeof vehicles[0] | null>(null);
   const [activeVariantIndex, setActiveVariantIndex] = useState(0);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
-  const [isTryOnOpen, setIsTryOnOpen] = useState(false);
+  const [compareIds, setCompareIds] = useState<string[]>([]);
+  const [isCompareOpen, setIsCompareOpen] = useState(false);
+
+  const toggleCompare = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCompareIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id].slice(-3) // Limit to 3 for comparison
+    );
+  };
 
   const openVehicle = (vehicle: typeof vehicles[0]) => {
     setSelectedVehicle(vehicle);
@@ -130,37 +174,78 @@ export default function FeaturedVehicles() {
     setActiveImageIndex(0);
     document.body.style.overflow = "hidden";
     // Push a state so back button closes the modal
-    window.history.pushState({ modal: "details" }, "");
+    window.history.pushState({ modal: "details", vehicleId: vehicle.id }, "", `#vehicles?id=${vehicle.id}`);
   };
 
   const closeVehicle = () => {
     setSelectedVehicle(null);
-    setIsTryOnOpen(false);
     document.body.style.overflow = "auto";
     // If we are still in the modal state, go back
-    if (window.history.state?.modal === "details" || window.history.state?.modal === "tryon") {
+    if (window.history.state?.modal === "details") {
       window.history.back();
+    } else {
+      // Fallback if state is lost
+      window.location.hash = "#vehicles";
+    }
+  };
+
+  const closeCompare = () => {
+    setIsCompareOpen(false);
+    document.body.style.overflow = "auto";
+    if (window.history.state?.modal === "compare") {
+      window.history.back();
+    }
+  };
+
+  const handleShare = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedVehicle) return;
+
+    const shareData = {
+      title: `${selectedVehicle.brand} ${selectedVehicle.name}`,
+      text: `Check out the ${selectedVehicle.brand} ${selectedVehicle.name} on our collection!`,
+      url: `${window.location.origin}${window.location.pathname}#vehicles?id=${selectedVehicle.id}`,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        alert("Link copied to clipboard!");
+      }
+    } catch (err) {
+      console.error("Error sharing:", err);
     }
   };
 
   // Handle back button to close modals
   useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
-      if (selectedVehicle || isTryOnOpen) {
+      if (selectedVehicle || isCompareOpen) {
         setSelectedVehicle(null);
-        setIsTryOnOpen(false);
+        setIsCompareOpen(false);
         document.body.style.overflow = "auto";
       }
     };
 
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
-  }, [selectedVehicle, isTryOnOpen]);
+  }, [selectedVehicle, isCompareOpen]);
 
-  const openTryOn = () => {
-    setIsTryOnOpen(true);
-    window.history.pushState({ modal: "tryon" }, "");
-  };
+  // Check for vehicle ID in URL on initial mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.hash.split('?')[1]);
+    const vehicleId = params.get('id');
+    if (vehicleId) {
+      const vehicle = vehicles.find(v => v.id === vehicleId);
+      if (vehicle) {
+        // Use a slight delay to ensure the component is fully ready
+        const timer = setTimeout(() => openVehicle(vehicle), 100);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, []);
 
   return (
     <section id="vehicles" className="py-32 bg-[#050505] overflow-hidden">
@@ -241,15 +326,190 @@ export default function FeaturedVehicles() {
 
                 <div className="flex items-center justify-between pt-8 border-t border-white/5">
                   <div className="text-2xl font-black text-white italic tracking-tighter">{vehicle.price}</div>
-                  <button className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest hover:text-white transition-colors">
-                    Configure
-                  </button>
+                  <div className="flex items-center gap-4">
+                    <button 
+                      onClick={(e) => toggleCompare(vehicle.id, e)}
+                      className={`w-10 h-10 rounded-full border flex items-center justify-center transition-all ${
+                        compareIds.includes(vehicle.id) 
+                          ? "bg-yellow-500 border-yellow-500 text-black" 
+                          : "border-white/10 text-white/40 hover:border-white/30 hover:text-white"
+                      }`}
+                      title="Compare"
+                    >
+                      {compareIds.includes(vehicle.id) ? <Minus className="w-4 h-4" /> : <Scale className="w-4 h-4" />}
+                    </button>
+                    <button className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest hover:text-white transition-colors">
+                      Configure
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
           ))}
         </div>
       </div>
+
+      {/* Floating Compare Bar */}
+      <AnimatePresence>
+        {compareIds.length > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[150] bg-black/80 backdrop-blur-2xl border border-white/10 p-4 rounded-3xl shadow-2xl flex items-center gap-6"
+          >
+            <div className="flex items-center gap-3 px-4">
+              <Scale className="w-5 h-5 text-yellow-500" />
+              <span className="text-[10px] font-bold text-white uppercase tracking-widest">
+                {compareIds.length} {compareIds.length === 1 ? "Vehicle" : "Vehicles"} Selected
+              </span>
+            </div>
+            
+            <div className="flex gap-2">
+              {compareIds.map(id => {
+                const v = vehicles.find(v => v.id === id);
+                return (
+                  <div key={id} className="w-12 h-12 rounded-xl bg-white/5 border border-white/10 overflow-hidden relative group">
+                    <img src={v?.variants[0].images[0]} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    <button 
+                      onClick={(e) => toggleCompare(id, e)}
+                      className="absolute inset-0 bg-black/60 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-4 h-4 text-white" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="h-8 w-px bg-white/10 mx-2" />
+
+            <button 
+              onClick={() => {
+                if (compareIds.length >= 2) {
+                  setIsCompareOpen(true);
+                  window.history.pushState({ modal: "compare" }, "");
+                  document.body.style.overflow = "hidden";
+                }
+              }}
+              disabled={compareIds.length < 2}
+              className={`px-8 py-3 rounded-xl font-black text-[10px] tracking-widest uppercase transition-all ${
+                compareIds.length >= 2 
+                  ? "bg-yellow-500 text-black hover:bg-white" 
+                  : "bg-white/5 text-white/20 cursor-not-allowed"
+              }`}
+            >
+              Compare Now
+            </button>
+
+            <button 
+              onClick={() => setCompareIds([])}
+              className="p-3 text-white/40 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Comparison Modal */}
+      <AnimatePresence>
+        {isCompareOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-2xl flex items-center justify-center p-4 md:p-8"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="relative w-full max-w-7xl max-h-[90vh] bg-[#0a0a0a] rounded-[40px] border border-white/10 overflow-hidden flex flex-col"
+            >
+              {/* Modal Header */}
+              <div className="p-8 border-b border-white/10 flex items-center justify-between bg-gradient-to-r from-yellow-500/10 to-transparent">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-yellow-500 flex items-center justify-center">
+                    <Scale className="w-6 h-6 text-black" />
+                  </div>
+                  <div>
+                    <h2 className="text-3xl font-black text-white uppercase italic tracking-tighter">Performance Comparison</h2>
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Side-by-side specification analysis</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={closeCompare}
+                  className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {/* Comparison Content */}
+              <div className="flex-1 overflow-x-auto custom-scrollbar">
+                <div className="min-w-[800px] p-8">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        <th className="p-6 text-left w-1/4"></th>
+                        {compareIds.map(id => {
+                          const v = vehicles.find(v => v.id === id);
+                          return (
+                            <th key={id} className="p-6 text-center w-1/4">
+                              <div className="flex flex-col items-center gap-4">
+                                <div className="w-48 aspect-video rounded-2xl bg-white/5 overflow-hidden">
+                                  <img src={v?.variants[0].images[0]} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                                </div>
+                                <div>
+                                  <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">{v?.name}</h3>
+                                  <p className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest">{v?.brand}</p>
+                                </div>
+                              </div>
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody className="text-white">
+                      {/* Price Row */}
+                      <tr className="border-b border-white/5">
+                        <td className="p-6 text-[10px] font-bold text-white/40 uppercase tracking-widest">Price</td>
+                        {compareIds.map(id => (
+                          <td key={id} className="p-6 text-center text-2xl font-black italic tracking-tighter">
+                            {vehicles.find(v => v.id === id)?.price}
+                          </td>
+                        ))}
+                      </tr>
+                      {/* Specs Rows */}
+                      {renderComparisonRows(compareIds)}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-8 border-t border-white/10 bg-black/40 flex justify-center gap-4">
+                {compareIds.map(id => (
+                  <button 
+                    key={id}
+                    onClick={() => {
+                      const v = vehicles.find(v => v.id === id);
+                      if (v) {
+                        closeCompare();
+                        openVehicle(v);
+                      }
+                    }}
+                    className="px-6 py-3 rounded-xl border border-white/10 text-[10px] font-bold text-white uppercase tracking-widest hover:bg-white hover:text-black transition-all"
+                  >
+                    View {vehicles.find(v => v.id === id)?.name}
+                  </button>
+                ))}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Detail Modal */}
       <AnimatePresence>
@@ -268,10 +528,19 @@ export default function FeaturedVehicles() {
             >
               {/* Left: Image Showcase */}
               <div className="lg:w-3/5 relative bg-white/5 p-8 flex items-center justify-center overflow-hidden">
-                {/* Close Button - Resized to 30x30px and moved to top-0 right-8 */}
+                {/* Share Button - Positioned on the left */}
+                <button 
+                  onClick={handleShare}
+                  className="absolute top-8 left-8 z-50 w-[30px] h-[30px] rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all shadow-2xl"
+                  title="Share Vehicle"
+                >
+                  <Share2 className="w-[15px] h-[15px]" />
+                </button>
+
+                {/* Close Button - Resized to 30x30px and moved to top-8 right-8 */}
                 <button 
                   onClick={closeVehicle}
-                  className="absolute top-0 right-8 z-50 w-[30px] h-[30px] rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all shadow-2xl"
+                  className="absolute top-8 right-8 z-50 w-[30px] h-[30px] rounded-full bg-black/40 backdrop-blur-md border border-white/10 flex items-center justify-center text-white hover:bg-white hover:text-black transition-all shadow-2xl"
                 >
                   <X className="w-[15px] h-[15px]" />
                 </button>
@@ -311,14 +580,6 @@ export default function FeaturedVehicles() {
                     {selectedVehicle.brand}
                   </span>
                 </div>
-
-                {/* Virtual Try-On Trigger - Moved to bottom-0 */}
-                <button 
-                  onClick={openTryOn}
-                  className="absolute bottom-0 left-8 z-20 bg-white text-black px-2.5 py-1.5 rounded-full font-black text-[9px] uppercase hover:bg-yellow-500 transition-all flex items-center gap-1 shadow-xl"
-                >
-                  <Camera className="w-3 h-3" /> Virtual Try-On
-                </button>
               </div>
 
               {/* Right: Info */}
@@ -397,19 +658,6 @@ export default function FeaturedVehicles() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Virtual Try-On Modal */}
-      {selectedVehicle && (
-        <>
-          {console.log("Rendering VirtualTryOn for", selectedVehicle.name, "isOpen:", isTryOnOpen)}
-          <VirtualTryOn 
-            isOpen={isTryOnOpen}
-            onClose={() => setIsTryOnOpen(false)}
-            bikeName={selectedVehicle.name}
-            bikeColor={selectedVehicle.variants[activeVariantIndex].hex}
-          />
-        </>
-      )}
     </section>
   );
 }
