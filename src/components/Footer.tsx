@@ -75,6 +75,9 @@ export default function Footer() {
                 {link}
               </a>
             ))}
+            <a href="#admin" className="text-[10px] font-bold text-white/20 uppercase tracking-widest hover:text-yellow-500 transition-colors border-l border-white/5 pl-8">
+              Admin
+            </a>
           </div>
           <div className="text-[10px] font-bold text-white/20 uppercase tracking-widest">
             Designed with <span className="text-yellow-500">Passion</span>
